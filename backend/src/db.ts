@@ -1,0 +1,152 @@
+import Database from "better-sqlite3";
+import path from "path";
+import fs from "fs";
+import { Booth, BoothInput } from "./types";
+
+const dataDir = path.resolve(__dirname, "../../data");
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+
+const dbPath = path.join(dataDir, "booths.db");
+const db = new Database(dbPath);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS booths (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    city TEXT NOT NULL,
+    address TEXT NOT NULL,
+    longitude REAL NOT NULL,
+    latitude REAL NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('available', 'damaged', 'demolished')),
+    discovery_date TEXT NOT NULL,
+    photo_url TEXT NOT NULL DEFAULT ''
+  )
+`);
+
+export function getAllBooths(city?: string, status?: string): Booth[] {
+  let sql = "SELECT * FROM booths";
+  const conditions: string[] = [];
+  const params: string[] = [];
+
+  if (city) {
+    conditions.push("city = ?");
+    params.push(city);
+  }
+  if (status) {
+    conditions.push("status = ?");
+    params.push(status);
+  }
+
+  if (conditions.length > 0) {
+    sql += " WHERE " + conditions.join(" AND ");
+  }
+  sql += " ORDER BY id ASC";
+
+  return db.prepare(sql).all(...params) as Booth[];
+}
+
+export function getBoothById(id: number): Booth | undefined {
+  return db.prepare("SELECT * FROM booths WHERE id = ?").get(id) as Booth | undefined;
+}
+
+export function createBooth(input: BoothInput): Booth {
+  const stmt = db.prepare(
+    `INSERT INTO booths (city, address, longitude, latitude, status, discovery_date, photo_url)
+     VALUES (@city, @address, @longitude, @latitude, @status, @discovery_date, @photo_url)`
+  );
+  const result = stmt.run(input);
+  return getBoothById(result.lastInsertRowid as number)!;
+}
+
+export function updateBooth(id: number, input: BoothInput): Booth | undefined {
+  const existing = getBoothById(id);
+  if (!existing) return undefined;
+
+  db.prepare(
+    `UPDATE booths SET
+      city = @city, address = @address, longitude = @longitude,
+      latitude = @latitude, status = @status, discovery_date = @discovery_date,
+      photo_url = @photo_url
+     WHERE id = @id`
+  ).run({ ...input, id });
+
+  return getBoothById(id);
+}
+
+export function deleteBooth(id: number): boolean {
+  const result = db.prepare("DELETE FROM booths WHERE id = ?").run(id);
+  return result.changes > 0;
+}
+
+export function getCities(): string[] {
+  const rows = db.prepare("SELECT DISTINCT city FROM booths ORDER BY city").all() as { city: string }[];
+  return rows.map((r) => r.city);
+}
+
+export function seedIfEmpty(): void {
+  const count = (db.prepare("SELECT COUNT(*) as cnt FROM booths").get() as { cnt: number }).cnt;
+  if (count > 0) return;
+
+  const seedData: BoothInput[] = [
+    {
+      city: "北京",
+      address: "东城区王府井大街88号",
+      longitude: 116.4174,
+      latitude: 39.9092,
+      status: "available",
+      discovery_date: "2024-03-15",
+      photo_url: "https://picsum.photos/seed/booth1/400/300",
+    },
+    {
+      city: "上海",
+      address: "黄浦区南京东路100号",
+      longitude: 121.4844,
+      latitude: 31.2359,
+      status: "damaged",
+      discovery_date: "2024-05-20",
+      photo_url: "https://picsum.photos/seed/booth2/400/300",
+    },
+    {
+      city: "广州",
+      address: "越秀区北京路168号",
+      longitude: 113.2644,
+      latitude: 23.1291,
+      status: "available",
+      discovery_date: "2024-06-08",
+      photo_url: "https://picsum.photos/seed/booth3/400/300",
+    },
+    {
+      city: "深圳",
+      address: "福田区深南大道5001号",
+      longitude: 114.0579,
+      latitude: 22.5431,
+      status: "demolished",
+      discovery_date: "2023-11-30",
+      photo_url: "https://picsum.photos/seed/booth4/400/300",
+    },
+    {
+      city: "北京",
+      address: "西城区西单北大街120号",
+      longitude: 116.3735,
+      latitude: 39.9133,
+      status: "available",
+      discovery_date: "2024-08-12",
+      photo_url: "https://picsum.photos/seed/booth5/400/300",
+    },
+  ];
+
+  const insert = db.prepare(
+    `INSERT INTO booths (city, address, longitude, latitude, status, discovery_date, photo_url)
+     VALUES (@city, @address, @longitude, @latitude, @status, @discovery_date, @photo_url)`
+  );
+
+  const insertMany = db.transaction((items: BoothInput[]) => {
+    for (const item of items) {
+      insert.run(item);
+    }
+  });
+
+  insertMany(seedData);
+  console.log("Seeded 5 booth records.");
+}
