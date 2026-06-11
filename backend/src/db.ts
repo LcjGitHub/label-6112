@@ -53,9 +53,11 @@ export function getAllBooths(city?: string, status?: string, keyword?: string): 
     conditions.push("status = ?");
     params.push(status);
   }
-  if (keyword) {
-    conditions.push("address LIKE ?");
-    params.push(`%${keyword}%`);
+  const trimmedKeyword = keyword?.trim();
+  if (trimmedKeyword) {
+    const escapedKeyword = trimmedKeyword.replace(/%/g, "\\%").replace(/_/g, "\\_");
+    conditions.push("address LIKE ? ESCAPE '\\'");
+    params.push(`%${escapedKeyword}%`);
   }
 
   if (conditions.length > 0) {

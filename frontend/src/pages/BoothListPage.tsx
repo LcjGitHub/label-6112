@@ -37,7 +37,7 @@ export function BoothListPage() {
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
-      setDebouncedKeyword(keywordInput);
+      setDebouncedKeyword(keywordInput.trim());
     }, 300);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -173,7 +173,7 @@ export function BoothListPage() {
                 {booths.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground">
-                      暂无数据
+                      {city || status || debouncedKeyword ? "未找到匹配地址" : "暂无数据"}
                     </TableCell>
                   </TableRow>
                 ) : (

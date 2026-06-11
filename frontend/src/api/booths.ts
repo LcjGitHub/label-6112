@@ -7,7 +7,8 @@ export async function fetchBooths(city?: string, status?: string, keyword?: stri
   const params: Record<string, string> = {};
   if (city) params.city = city;
   if (status) params.status = status;
-  if (keyword) params.keyword = keyword;
+  const trimmedKeyword = keyword?.trim();
+  if (trimmedKeyword) params.keyword = trimmedKeyword;
   const { data } = await api.get<Booth[]>("/booths", { params });
   return data;
 }
