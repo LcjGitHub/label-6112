@@ -20,3 +20,9 @@ export interface BoothInput {
   discovery_date: string;
   photo_url: string;
 }
+
+export interface BoothStatistics {
+  total: number;
+  byStatus: Record<BoothStatus, number>;
+  byCity: Record<string, number>;
+}

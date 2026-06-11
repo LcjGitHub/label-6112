@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, MapPin, Pencil, Trash2 } from "lucide-react";
-import { fetchBooth, updateBooth, deleteBooth } from "@/api/booths";
+import { fetchBooth, updateBooth, deleteBooth, invalidateStatisticsCache } from "@/api/booths";
 import { BoothForm } from "@/components/BoothForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +27,8 @@ export function BoothDetailPage() {
       queryClient.setQueryData(["booth", boothId], updated);
       queryClient.invalidateQueries({ queryKey: ["booths"] });
       queryClient.invalidateQueries({ queryKey: ["cities"] });
+      queryClient.invalidateQueries({ queryKey: ["statistics"] });
+      invalidateStatisticsCache();
       setEditing(false);
     },
   });
@@ -36,6 +38,8 @@ export function BoothDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["booths"] });
       queryClient.invalidateQueries({ queryKey: ["cities"] });
+      queryClient.invalidateQueries({ queryKey: ["statistics"] });
+      invalidateStatisticsCache();
       navigate("/");
     },
   });

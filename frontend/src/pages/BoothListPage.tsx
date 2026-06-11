@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { MapPin, Plus, Trash2 } from "lucide-react";
-import { fetchBooths, fetchCities, createBooth, deleteBooth } from "@/api/booths";
+import { MapPin, Plus, Trash2, BarChart3 } from "lucide-react";
+import { fetchBooths, fetchCities, createBooth, deleteBooth, invalidateStatisticsCache } from "@/api/booths";
 import { BoothForm } from "@/components/BoothForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,6 +45,8 @@ export function BoothListPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["booths"] });
       queryClient.invalidateQueries({ queryKey: ["cities"] });
+      queryClient.invalidateQueries({ queryKey: ["statistics"] });
+      invalidateStatisticsCache();
       setShowForm(false);
     },
   });
@@ -54,6 +56,8 @@ export function BoothListPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["booths"] });
       queryClient.invalidateQueries({ queryKey: ["cities"] });
+      queryClient.invalidateQueries({ queryKey: ["statistics"] });
+      invalidateStatisticsCache();
     },
   });
 
@@ -64,10 +68,18 @@ export function BoothListPage() {
           <MapPin className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-bold">电话亭档案</h1>
         </div>
-        <Button onClick={() => setShowForm((v) => !v)}>
-          <Plus className="h-4 w-4" />
-          新增电话亭
-        </Button>
+        <div className="flex gap-2">
+          <Link to="/statistics">
+            <Button variant="outline">
+              <BarChart3 className="h-4 w-4" />
+              数据统计
+            </Button>
+          </Link>
+          <Button onClick={() => setShowForm((v) => !v)}>
+            <Plus className="h-4 w-4" />
+            新增电话亭
+          </Button>
+        </div>
       </div>
 
       {showForm && (

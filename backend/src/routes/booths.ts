@@ -6,6 +6,7 @@ import {
   updateBooth,
   deleteBooth,
   getCities,
+  getStatistics,
 } from "../db";
 import { BoothInput, BoothStatus } from "../types";
 
@@ -46,6 +47,10 @@ router.get("/", (req: Request, res: Response) => {
 
 router.get("/cities", (_req: Request, res: Response) => {
   res.json(getCities());
+});
+
+router.get("/statistics", (_req: Request, res: Response) => {
+  res.json(getStatistics());
 });
 
 router.get("/:id", (req: Request, res: Response) => {

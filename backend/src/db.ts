@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
-import { Booth, BoothInput } from "./types";
+import { Booth, BoothInput, BoothStatistics, BoothStatus } from "./types";
 
 const dataDir = path.resolve(__dirname, "../../data");
 if (!fs.existsSync(dataDir)) {
@@ -82,6 +82,28 @@ export function deleteBooth(id: number): boolean {
 export function getCities(): string[] {
   const rows = db.prepare("SELECT DISTINCT city FROM booths ORDER BY city").all() as { city: string }[];
   return rows.map((r) => r.city);
+}
+
+export function getStatistics(): BoothStatistics {
+  const total = (db.prepare("SELECT COUNT(*) as cnt FROM booths").get() as { cnt: number }).cnt;
+
+  const statusRows = db.prepare("SELECT status, COUNT(*) as count FROM booths GROUP BY status").all() as { status: BoothStatus; count: number }[];
+  const byStatus: Record<BoothStatus, number> = {
+    available: 0,
+    damaged: 0,
+    demolished: 0,
+  };
+  for (const row of statusRows) {
+    byStatus[row.status] = row.count;
+  }
+
+  const cityRows = db.prepare("SELECT city, COUNT(*) as count FROM booths GROUP BY city ORDER BY city").all() as { city: string; count: number }[];
+  const byCity: Record<string, number> = {};
+  for (const row of cityRows) {
+    byCity[row.city] = row.count;
+  }
+
+  return { total, byStatus, byCity };
 }
 
 export function seedIfEmpty(): void {

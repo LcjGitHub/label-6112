@@ -21,6 +21,12 @@ export interface BoothInput {
   photo_url: string;
 }
 
+export interface BoothStatistics {
+  total: number;
+  byStatus: Record<BoothStatus, number>;
+  byCity: Record<string, number>;
+}
+
 export const STATUS_LABELS: Record<BoothStatus, string> = {
   available: "可用",
   damaged: "损坏",
