@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { MapPin, Plus, Trash2, BarChart3, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
 import { fetchBooths, fetchCities, createBooth, deleteBooth } from "@/api/booths";
 import { BoothForm } from "@/components/BoothForm";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HighlightText } from "@/components/HighlightText";
@@ -71,6 +72,7 @@ export function BoothListPage() {
   const [sortField, setSortField] = useState<BoothSortField | undefined>(parseSortFieldFromParams(searchParams));
   const [sortDirection, setSortDirection] = useState<SortDirection>(parseSortDirectionFromParams(searchParams));
   const [createServerErrors, setCreateServerErrors] = useState<Record<string, string>>({});
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; booth: Booth | null }>({ open: false, booth: null });
 
   useEffect(() => {
     return () => {
@@ -217,8 +219,15 @@ export function BoothListPage() {
       queryClient.invalidateQueries({ queryKey: ["booths"] });
       queryClient.invalidateQueries({ queryKey: ["cities"] });
       queryClient.invalidateQueries({ queryKey: ["statistics"] });
+      setDeleteDialog({ open: false, booth: null });
     },
   });
+
+  const handleConfirmDelete = () => {
+    if (deleteDialog.booth) {
+      deleteMutation.mutate(deleteDialog.booth.id);
+    }
+  };
 
   const handlePrevPage = () => {
     if (currentPage > 1) {
@@ -243,6 +252,16 @@ export function BoothListPage() {
 
   return (
     <div className="container mx-auto max-w-6xl py-8 px-4">
+      {deleteDialog.open && deleteDialog.booth && (
+        <ConfirmDialog
+          title="删除电话亭"
+          description={`确认删除「${deleteDialog.booth.address}」？此操作将同时删除所有关联的巡检记录，且无法恢复。`}
+          confirmLabel="确认删除"
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setDeleteDialog({ open: false, booth: null })}
+          isPending={deleteMutation.isPending}
+        />
+      )}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <MapPin className="h-6 w-6 text-primary" />
@@ -424,11 +443,7 @@ export function BoothListPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => {
-                                if (confirm("确认删除该电话亭？")) {
-                                  deleteMutation.mutate(booth.id);
-                                }
-                              }}
+                              onClick={() => setDeleteDialog({ open: true, booth })}
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
