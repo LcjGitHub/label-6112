@@ -136,7 +136,20 @@ export function getAllBooths(
 }
 
 export function getBoothById(id: number): Booth | undefined {
-  return db.prepare("SELECT * FROM booths WHERE id = ?").get(id) as Booth | undefined;
+  return db.prepare(
+    `SELECT b.*, COUNT(ir.id) as inspection_count
+     FROM booths b
+     LEFT JOIN inspection_records ir ON b.id = ir.booth_id
+     WHERE b.id = ?
+     GROUP BY b.id`
+  ).get(id) as Booth | undefined;
+}
+
+export function getInspectionCountByBoothId(boothId: number): number {
+  const result = db.prepare(
+    "SELECT COUNT(*) as cnt FROM inspection_records WHERE booth_id = ?"
+  ).get(boothId) as { cnt: number };
+  return result.cnt;
 }
 
 export function createBooth(input: BoothInput): Booth {

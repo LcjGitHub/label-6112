@@ -152,6 +152,7 @@ export function BoothDetailPage() {
     mutationFn: (values: InspectionRecordInput) => createInspection(boothId, values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inspections", boothId] });
+      queryClient.invalidateQueries({ queryKey: ["booth", boothId] });
       reset({
         inspector_name: "",
         inspection_date: new Date().toISOString().slice(0, 10),
@@ -165,6 +166,7 @@ export function BoothDetailPage() {
     mutationFn: (recordId: number) => deleteInspection(boothId, recordId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inspections", boothId] });
+      queryClient.invalidateQueries({ queryKey: ["booth", boothId] });
       setDeleteDialog({ open: false, target: "booth" });
       showToast("巡检记录已删除");
     },
@@ -175,6 +177,7 @@ export function BoothDetailPage() {
       updateInspection(boothId, recordId, values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inspections", boothId] });
+      queryClient.invalidateQueries({ queryKey: ["booth", boothId] });
       setEditingRecordId(null);
       setEditErrors({});
       showToast("巡检记录已更新");
@@ -327,7 +330,10 @@ export function BoothDetailPage() {
                   <MapPin className="h-5 w-5 text-primary" />
                   {booth.address}
                 </CardTitle>
-                <CardDescription>{booth.city} · {STATUS_LABELS[booth.status]}</CardDescription>
+                <div className="space-y-1">
+                  <CardDescription>{booth.city} · {STATUS_LABELS[booth.status]}</CardDescription>
+                  <p className="text-sm text-muted-foreground">共 {booth.inspection_count ?? 0} 次巡检</p>
+                </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid gap-2 text-sm sm:grid-cols-2">

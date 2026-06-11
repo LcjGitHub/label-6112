@@ -13,6 +13,7 @@ export interface Booth {
   discovery_date: string;
   photo_url: string;
   remark: string | null;
+  inspection_count?: number;
 }
 
 export interface BoothInput {
