@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, MapPin, Pencil, Trash2, Plus, ClipboardList, User, Calendar, MessageSquare, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, MapPin, Pencil, Trash2, Plus, ClipboardList, User, Calendar, MessageSquare, CheckCircle2, XCircle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -33,7 +33,7 @@ type InspectionEditFormValues = z.infer<typeof inspectionEditSchema>;
 interface Toast {
   id: number;
   message: string;
-  type: "success";
+  type: "success" | "error";
 }
 
 interface DeleteDialogState {
@@ -94,6 +94,26 @@ export function BoothDetailPage() {
     }, 2000);
   }
 
+  function showErrorToast(message: string) {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type: "error" }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 2000);
+  }
+
+  function extractFieldDetails(error: unknown): Record<string, string> | undefined {
+    try {
+      const axiosErr = error as { response?: { data?: { details?: Record<string, string> } } };
+      if (axiosErr.response?.data?.details && typeof axiosErr.response.data.details === "object") {
+        return axiosErr.response.data.details;
+      }
+    } catch {
+      // ignore
+    }
+    return undefined;
+  }
+
   const updateMutation = useMutation({
     mutationFn: (values: Parameters<typeof updateBooth>[1]) => updateBooth(boothId, values),
     onSuccess: (updated) => {
@@ -146,6 +166,15 @@ export function BoothDetailPage() {
       setEditingRecordId(null);
       setEditErrors({});
       showToast("巡检记录已更新");
+    },
+    onError: (error) => {
+      const details = extractFieldDetails(error);
+      if (details) {
+        setEditErrors(details);
+        showErrorToast("更新失败：请检查字段内容");
+      } else {
+        showErrorToast("更新失败，请稍后重试");
+      }
     },
   });
 
@@ -209,9 +238,17 @@ export function BoothDetailPage() {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-50 px-4 py-3 text-sm text-green-800 shadow-lg animate-in slide-in-from-right fade-in"
+            className={
+              toast.type === "success"
+                ? "flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-50 px-4 py-3 text-sm text-green-800 shadow-lg animate-in slide-in-from-right fade-in"
+                : "flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-lg animate-in slide-in-from-right fade-in"
+            }
           >
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            {toast.type === "success" ? (
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+            ) : (
+              <XCircle className="h-4 w-4 text-red-600" />
+            )}
             {toast.message}
           </div>
         ))}
@@ -494,8 +531,10 @@ export function BoothDetailPage() {
                               size="sm"
                               className="h-8 px-2 text-muted-foreground hover:text-foreground hover:bg-accent"
                               onClick={() => startEditRecord(record)}
+                              title="编辑巡检记录"
                             >
-                              <Pencil className="h-4 w-4" />
+                              <Pencil className="h-4 w-4 mr-1" />
+                              <span className="text-xs">编辑</span>
                             </Button>
                             <Button
                               variant="ghost"
@@ -505,18 +544,22 @@ export function BoothDetailPage() {
                               onClick={() =>
                                 setDeleteDialog({ open: true, target: "inspection", record })
                               }
+                              title="删除巡检记录"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              <span className="text-xs">删除</span>
                             </Button>
                           </div>
                         </div>
-                        {record.remarks ? (
-                          <div className="mt-2 pt-2 border-t">
+                        <div className="mt-2 pt-2 border-t">
+                          {record.remarks ? (
                             <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                               {record.remarks}
                             </p>
-                          </div>
-                        ) : null}
+                          ) : (
+                            <p className="text-sm text-muted-foreground italic">暂无备注</p>
+                          )}
+                        </div>
                       </>
                     )}
                   </div>

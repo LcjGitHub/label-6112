@@ -43,6 +43,22 @@ function validateInput(body: Record<string, unknown>): BoothInput | null {
   };
 }
 
+function validateInspectorAndRemarks(
+  inspector_name: unknown,
+  remarks: unknown
+): Record<string, string> {
+  const errors: Record<string, string> = {};
+  if (typeof inspector_name !== "string" || inspector_name.trim().length === 0) {
+    errors.inspector_name = "请输入巡检人姓名";
+  }
+  if (typeof remarks !== "string" || remarks.trim().length === 0) {
+    errors.remarks = "请输入备注说明";
+  } else if (remarks.trim().length > 500) {
+    errors.remarks = "备注不能超过500字";
+  }
+  return errors;
+}
+
 function validateInspectionInput(
   body: Record<string, unknown>,
   boothId: number
@@ -50,14 +66,11 @@ function validateInspectionInput(
   const errors: Record<string, string> = {};
   const { inspector_name, inspection_date, remarks } = body;
 
-  if (typeof inspector_name !== "string" || inspector_name.trim().length === 0) {
-    errors.inspector_name = "请输入巡检人姓名";
-  }
+  const sharedErrors = validateInspectorAndRemarks(inspector_name, remarks);
+  Object.assign(errors, sharedErrors);
+
   if (typeof inspection_date !== "string" || inspection_date.trim().length === 0) {
     errors.inspection_date = "请选择巡检日期";
-  }
-  if (typeof remarks !== "string" || remarks.trim().length === 0) {
-    errors.remarks = "请输入备注说明";
   }
 
   if (Object.keys(errors).length > 0) {
@@ -69,6 +82,25 @@ function validateInspectionInput(
       booth_id: boothId,
       inspector_name: (inspector_name as string).trim(),
       inspection_date: (inspection_date as string).trim(),
+      remarks: (remarks as string).trim(),
+    },
+    errors,
+  };
+}
+
+function validateInspectionUpdateInput(
+  body: Record<string, unknown>
+): { input: InspectionRecordUpdateInput; errors: Record<string, string> } | { input: null; errors: Record<string, string> } {
+  const { inspector_name, remarks } = body;
+  const errors = validateInspectorAndRemarks(inspector_name, remarks);
+
+  if (Object.keys(errors).length > 0) {
+    return { input: null, errors };
+  }
+
+  return {
+    input: {
+      inspector_name: (inspector_name as string).trim(),
       remarks: (remarks as string).trim(),
     },
     errors,
@@ -197,23 +229,12 @@ router.put("/:id/inspections/:recordId", (req: Request, res: Response) => {
     res.status(404).json({ error: "Booth not found" });
     return;
   }
-  const { inspector_name, remarks } = req.body as Record<string, unknown>;
-  const errors: Record<string, string> = {};
-  if (typeof inspector_name !== "string" || inspector_name.trim().length === 0) {
-    errors.inspector_name = "请输入巡检人姓名";
-  }
-  if (typeof remarks !== "string" || remarks.trim().length === 0) {
-    errors.remarks = "请输入备注说明";
-  }
-  if (Object.keys(errors).length > 0) {
-    res.status(400).json({ error: "Validation failed", details: errors });
+  const result = validateInspectionUpdateInput(req.body);
+  if (!result.input) {
+    res.status(400).json({ error: "Validation failed", details: result.errors });
     return;
   }
-  const input: InspectionRecordUpdateInput = {
-    inspector_name: (inspector_name as string).trim(),
-    remarks: (remarks as string).trim(),
-  };
-  const record = updateInspectionRecord(recordId, id, input);
+  const record = updateInspectionRecord(recordId, id, result.input);
   if (!record) {
     res.status(404).json({ error: "Inspection record not found" });
     return;
