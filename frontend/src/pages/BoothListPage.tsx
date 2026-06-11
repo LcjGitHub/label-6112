@@ -23,6 +23,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { Booth, BoothStatus, PaginatedResult } from "@/types/booth";
 import { STATUS_LABELS } from "@/types/booth";
 
@@ -314,10 +320,23 @@ export function BoothListPage() {
                           </TableCell>
                           <TableCell>{STATUS_LABELS[booth.status]}</TableCell>
                           <TableCell>{booth.discovery_date}</TableCell>
-                          <TableCell title={booth.remark || undefined}>
-                            {booth.remark && booth.remark.length > 30
-                              ? booth.remark.slice(0, 30) + "..."
-                              : booth.remark || "-"}
+                          <TableCell>
+                            {booth.remark ? (
+                              <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="cursor-default">
+                                      {booth.remark.length > 30 ? booth.remark.slice(0, 30) + "..." : booth.remark}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">
+                                    {booth.remark}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              "-"
+                            )}
                           </TableCell>
                           <TableCell>
                             <Button

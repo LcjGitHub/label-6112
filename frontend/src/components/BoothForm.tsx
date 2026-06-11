@@ -22,7 +22,7 @@ const boothSchema = z.object({
   status: z.enum(["available", "damaged", "demolished"]),
   discovery_date: z.string().min(1, "请输入发现日期"),
   photo_url: z.string().url("请输入有效 URL").or(z.literal("")),
-  remark: z.string().max(500, "备注不能超过500字").or(z.literal("")).nullable(),
+  remark: z.string().max(200, "备注不能超过200字").or(z.literal("")).nullable(),
 });
 
 type BoothFormValues = z.infer<typeof boothSchema>;
@@ -63,6 +63,8 @@ export function BoothForm({
   });
 
   const status = watch("status");
+  const remarkValue = watch("remark") || "";
+  const REMARK_MAX = 200;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -127,11 +129,17 @@ export function BoothForm({
         <textarea
           id="remark"
           rows={4}
+          maxLength={REMARK_MAX}
           className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-          placeholder="请输入备注信息（选填，最多500字）"
+          placeholder="请输入备注信息（选填，最多200字）"
           {...register("remark")}
         />
-        {errors.remark && <p className="text-sm text-destructive">{errors.remark.message}</p>}
+        <div className="flex items-center justify-between">
+          {errors.remark && <p className="text-sm text-destructive">{errors.remark.message}</p>}
+          <p className={`text-xs ml-auto ${(REMARK_MAX - remarkValue.length) < 20 ? "text-destructive" : "text-muted-foreground"}`}>
+            剩余 {REMARK_MAX - remarkValue.length} 字
+          </p>
+        </div>
       </div>
 
       <div className="flex gap-2">

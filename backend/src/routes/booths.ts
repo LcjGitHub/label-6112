@@ -19,28 +19,48 @@ const router = Router();
 const VALID_STATUSES: BoothStatus[] = ["available", "damaged", "demolished"];
 const VALID_PAGE_SIZES = [10, 20, 50];
 
-function validateInput(body: Record<string, unknown>): BoothInput | null {
+function validateInput(body: Record<string, unknown>): { input: BoothInput; errors: Record<string, string> } | { input: null; errors: Record<string, string> } {
   const { city, address, longitude, latitude, status, discovery_date, photo_url, remark } = body;
-  if (
-    typeof city !== "string" ||
-    typeof address !== "string" ||
-    typeof longitude !== "number" ||
-    typeof latitude !== "number" ||
-    typeof status !== "string" ||
-    !VALID_STATUSES.includes(status as BoothStatus) ||
-    typeof discovery_date !== "string"
-  ) {
-    return null;
+  const errors: Record<string, string> = {};
+
+  if (typeof city !== "string" || city.trim().length === 0) {
+    errors.city = "请输入城市";
   }
+  if (typeof address !== "string" || address.trim().length === 0) {
+    errors.address = "请输入地址";
+  }
+  if (typeof longitude !== "number") {
+    errors.longitude = "请输入有效经度";
+  }
+  if (typeof latitude !== "number") {
+    errors.latitude = "请输入有效纬度";
+  }
+  if (typeof status !== "string" || !VALID_STATUSES.includes(status as BoothStatus)) {
+    errors.status = "请选择有效状态";
+  }
+  if (typeof discovery_date !== "string" || discovery_date.trim().length === 0) {
+    errors.discovery_date = "请输入发现日期";
+  }
+  if (typeof remark === "string" && remark.trim().length > 200) {
+    errors.remark = "备注不能超过200字";
+  }
+
+  if (Object.keys(errors).length > 0) {
+    return { input: null, errors };
+  }
+
   return {
-    city,
-    address,
-    longitude,
-    latitude,
-    status: status as BoothStatus,
-    discovery_date,
-    photo_url: typeof photo_url === "string" ? photo_url : "",
-    remark: typeof remark === "string" && remark.trim() !== "" ? remark.trim() : null,
+    input: {
+      city: (city as string).trim(),
+      address: (address as string).trim(),
+      longitude: longitude as number,
+      latitude: latitude as number,
+      status: status as BoothStatus,
+      discovery_date: (discovery_date as string).trim(),
+      photo_url: typeof photo_url === "string" ? photo_url : "",
+      remark: typeof remark === "string" && remark.trim() !== "" ? (remark as string).trim() : null,
+    },
+    errors,
   };
 }
 
@@ -142,12 +162,12 @@ router.get("/:id", (req: Request, res: Response) => {
 });
 
 router.post("/", (req: Request, res: Response) => {
-  const input = validateInput(req.body);
-  if (!input) {
-    res.status(400).json({ error: "Invalid input" });
+  const result = validateInput(req.body);
+  if (!result.input) {
+    res.status(400).json({ error: "Validation failed", details: result.errors });
     return;
   }
-  const booth = createBooth(input);
+  const booth = createBooth(result.input);
   res.status(201).json(booth);
 });
 
@@ -157,12 +177,12 @@ router.put("/:id", (req: Request, res: Response) => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  const input = validateInput(req.body);
-  if (!input) {
-    res.status(400).json({ error: "Invalid input" });
+  const result = validateInput(req.body);
+  if (!result.input) {
+    res.status(400).json({ error: "Validation failed", details: result.errors });
     return;
   }
-  const booth = updateBooth(id, input);
+  const booth = updateBooth(id, result.input);
   if (!booth) {
     res.status(404).json({ error: "Booth not found" });
     return;
