@@ -29,8 +29,8 @@ export function HighlightText({ text, keyword, className }: HighlightTextProps) 
             <mark
               key={index}
               className={cn(
-                "bg-yellow-300 text-foreground font-semibold px-0.5 rounded-sm",
-                "dark:bg-yellow-600 dark:text-foreground"
+                "bg-yellow-300 text-inherit font-semibold px-0.5 rounded-sm",
+                "dark:bg-yellow-600"
               )}
             >
               {part}

@@ -252,11 +252,11 @@ export function BoothListPage() {
                           <TableCell>
                             <Link
                               to={`/booths/${booth.id}`}
-                              className="text-primary hover:underline"
+                              className="hover:underline"
                             >
                               <HighlightText
                                 text={booth.address}
-                                keyword={debouncedKeyword}
+                                keyword={keywordInput.trim()}
                               />
                             </Link>
                           </TableCell>
