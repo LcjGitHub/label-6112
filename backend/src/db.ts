@@ -71,8 +71,12 @@ export function getAllBooths(
   const countSql = "SELECT COUNT(*) as cnt FROM booths" + whereClause;
   const total = (db.prepare(countSql).get(...params) as { cnt: number }).cnt;
 
-  const validPage = Math.max(1, Math.floor(page) || 1);
   const validPageSize = Math.max(1, Math.min(100, Math.floor(pageSize) || 10));
+  const totalPages = Math.max(1, Math.ceil(total / validPageSize));
+  let validPage = Math.max(1, Math.floor(page) || 1);
+  if (validPage > totalPages) {
+    validPage = totalPages;
+  }
   const offset = (validPage - 1) * validPageSize;
 
   const dataSql = "SELECT * FROM booths" + whereClause + " ORDER BY id ASC LIMIT ? OFFSET ?";

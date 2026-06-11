@@ -26,7 +26,7 @@ import type { Booth, BoothStatus, PaginatedResult } from "@/types/booth";
 import { STATUS_LABELS } from "@/types/booth";
 
 const DEFAULT_PAGE_SIZE = 10;
-const PAGE_SIZE_OPTIONS = [10, 20, 50];
+const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 
 export function BoothListPage() {
   const queryClient = useQueryClient();
@@ -71,13 +71,19 @@ export function BoothListPage() {
   });
 
   const emptyResult: PaginatedResult<Booth> = { data: [], total: 0, page: 1, pageSize: DEFAULT_PAGE_SIZE };
-  const { data: paginatedResult = emptyResult, isLoading, isError } = useQuery({
+  const { data: paginatedResult = emptyResult, isLoading, isError, isFetching } = useQuery({
     queryKey: ["booths", city, status, debouncedKeyword, page, pageSize],
     queryFn: () => fetchBooths(city || undefined, status || undefined, debouncedKeyword || undefined, page, pageSize),
   });
 
   const { data: booths = [], total = 0, page: currentPage, pageSize: currentPageSize } = paginatedResult;
   const totalPages = Math.max(1, Math.ceil(total / currentPageSize));
+
+  useEffect(() => {
+    if (!isLoading && page > 1 && currentPage < page) {
+      setPage(1);
+    }
+  }, [isLoading, currentPage, page]);
 
   const createMutation = useMutation({
     mutationFn: createBooth,
@@ -105,6 +111,8 @@ export function BoothListPage() {
   const handleNextPage = () => {
     if (currentPage < totalPages) setPage(currentPage + 1);
   };
+
+  const showTableLoading = isFetching;
 
   return (
     <div className="container mx-auto max-w-6xl py-8 px-4">
@@ -189,59 +197,71 @@ export function BoothListPage() {
 
       <Card>
         <CardContent className="p-0">
-          {isLoading && <p className="p-6 text-muted-foreground">加载中...</p>}
           {isError && <p className="p-6 text-destructive">加载失败，请确认后端已启动。</p>}
-          {!isLoading && !isError && (
+          {!isError && (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>城市</TableHead>
-                    <TableHead>地址</TableHead>
-                    <TableHead>状态</TableHead>
-                    <TableHead>发现日期</TableHead>
-                    <TableHead className="w-24">操作</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {booths.length === 0 ? (
+              <div className="relative">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">
-                        {city || status || debouncedKeyword ? "未找到匹配地址" : "暂无数据"}
-                      </TableCell>
+                      <TableHead>城市</TableHead>
+                      <TableHead>地址</TableHead>
+                      <TableHead>状态</TableHead>
+                      <TableHead>发现日期</TableHead>
+                      <TableHead className="w-24">操作</TableHead>
                     </TableRow>
-                  ) : (
-                    booths.map((booth) => (
-                      <TableRow key={booth.id}>
-                        <TableCell>{booth.city}</TableCell>
-                        <TableCell>
-                          <Link
-                            to={`/booths/${booth.id}`}
-                            className="text-primary hover:underline"
-                          >
-                            {booth.address}
-                          </Link>
-                        </TableCell>
-                        <TableCell>{STATUS_LABELS[booth.status]}</TableCell>
-                        <TableCell>{booth.discovery_date}</TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              if (confirm("确认删除该电话亭？")) {
-                                deleteMutation.mutate(booth.id);
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                  </TableHeader>
+                  <TableBody>
+                    {showTableLoading && booths.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground">
+                          加载中...
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    ) : booths.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground">
+                          {city || status || debouncedKeyword ? "未找到匹配地址" : "暂无数据"}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      booths.map((booth) => (
+                        <TableRow key={booth.id}>
+                          <TableCell>{booth.city}</TableCell>
+                          <TableCell>
+                            <Link
+                              to={`/booths/${booth.id}`}
+                              className="text-primary hover:underline"
+                            >
+                              {booth.address}
+                            </Link>
+                          </TableCell>
+                          <TableCell>{STATUS_LABELS[booth.status]}</TableCell>
+                          <TableCell>{booth.discovery_date}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                if (confirm("确认删除该电话亭？")) {
+                                  deleteMutation.mutate(booth.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+                {showTableLoading && booths.length > 0 && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-background/60">
+                    <p className="text-sm text-muted-foreground">加载中...</p>
+                  </div>
+                )}
+              </div>
 
               <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4 border-t border-border">
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -271,20 +291,22 @@ export function BoothListPage() {
                   </span>
                   <Button
                     variant="outline"
-                    size="icon"
+                    size="sm"
                     onClick={handlePrevPage}
                     disabled={currentPage <= 1}
-                    className="h-8 w-8"
+                    className="h-8 gap-1"
                   >
                     <ChevronLeft className="h-4 w-4" />
+                    上一页
                   </Button>
                   <Button
                     variant="outline"
-                    size="icon"
+                    size="sm"
                     onClick={handleNextPage}
                     disabled={currentPage >= totalPages}
-                    className="h-8 w-8"
+                    className="h-8 gap-1"
                   >
+                    下一页
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
