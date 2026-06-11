@@ -11,6 +11,7 @@ import {
   createInspectionRecord,
   updateInspectionRecord,
   deleteInspectionRecord,
+  getBoothsForExport,
 } from "../db";
 import {
   validateBoothInput,
@@ -51,6 +52,52 @@ router.get("/", (req: Request, res: Response) => {
   const sortField = VALID_SORT_FIELDS.includes(sortFieldRaw as string) ? sortFieldRaw : undefined;
   const sortDirection = VALID_SORT_DIRECTIONS.includes(sortDirectionRaw as string) ? sortDirectionRaw : "asc";
   res.json(getAllBooths(city, status, keyword, page, pageSize, sortField as "discovery_date" | "city" | undefined, sortDirection as "asc" | "desc"));
+});
+
+const STATUS_LABELS: Record<string, string> = {
+  available: "可用",
+  damaged: "损坏",
+  demolished: "已拆",
+};
+
+function escapeCsvField(value: string | number | null | undefined): string {
+  const str = value == null ? "" : String(value);
+  if (str.includes('"') || str.includes(",") || str.includes("\n") || str.includes("\r")) {
+    return '"' + str.replace(/"/g, '""') + '"';
+  }
+  return str;
+}
+
+router.get("/export", (req: Request, res: Response) => {
+  const city = req.query.city as string | undefined;
+  const status = req.query.status as string | undefined;
+  const keyword = req.query.keyword as string | undefined;
+
+  const booths = getBoothsForExport(city, status, keyword);
+
+  const headers = ["ID", "城市", "地址", "经度", "纬度", "状态", "发现日期", "备注"];
+  const rows = booths.map((b) =>
+    [
+      escapeCsvField(b.id),
+      escapeCsvField(b.city),
+      escapeCsvField(b.address),
+      escapeCsvField(b.longitude),
+      escapeCsvField(b.latitude),
+      escapeCsvField(STATUS_LABELS[b.status] || b.status),
+      escapeCsvField(b.discovery_date),
+      escapeCsvField(b.remark),
+    ].join(",")
+  );
+
+  const bom = "\uFEFF";
+  const csv = bom + headers.join(",") + "\n" + rows.join("\n");
+
+  const today = new Date().toISOString().slice(0, 10);
+  const filename = encodeURIComponent(`电话亭数据_${today}.csv`);
+
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"; filename*=UTF-8''${filename}`);
+  res.send(csv);
 });
 
 router.get("/cities", (_req: Request, res: Response) => {

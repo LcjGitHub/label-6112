@@ -73,6 +73,34 @@ export function setDatabase(dbInstance: Database.Database): void {
   }
 }
 
+export function getBoothsForExport(
+  city?: string,
+  status?: string,
+  keyword?: string
+): Booth[] {
+  const conditions: string[] = [];
+  const params: (string | number)[] = [];
+
+  if (city) {
+    conditions.push("city = ?");
+    params.push(city);
+  }
+  if (status) {
+    conditions.push("status = ?");
+    params.push(status);
+  }
+  const trimmedKeyword = keyword?.trim();
+  if (trimmedKeyword) {
+    const escapedKeyword = trimmedKeyword.replace(/%/g, "\\%").replace(/_/g, "\\_");
+    conditions.push("address LIKE ? ESCAPE '\\'");
+    params.push(`%${escapedKeyword}%`);
+  }
+
+  const whereClause = conditions.length > 0 ? " WHERE " + conditions.join(" AND ") : "";
+  const dataSql = "SELECT * FROM booths" + whereClause + " ORDER BY id ASC";
+  return db.prepare(dataSql).all(...params) as Booth[];
+}
+
 export function getAllBooths(
   city?: string,
   status?: string,

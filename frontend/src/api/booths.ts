@@ -79,3 +79,32 @@ export async function updateInspection(
   const { data } = await api.put<InspectionRecord>(`/booths/${boothId}/inspections/${recordId}`, input);
   return data;
 }
+
+export async function exportBoothsCsv(
+  city?: string,
+  status?: string,
+  keyword?: string
+): Promise<void> {
+  const params: Record<string, string> = {};
+  if (city) params.city = city;
+  if (status) params.status = status;
+  const trimmedKeyword = keyword?.trim();
+  if (trimmedKeyword) params.keyword = trimmedKeyword;
+
+  const { data } = await api.get<Blob>("/booths/export", {
+    params,
+    responseType: "blob",
+  });
+
+  const today = new Date().toISOString().slice(0, 10);
+  const filename = `电话亭数据_${today}.csv`;
+
+  const url = URL.createObjectURL(data);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}

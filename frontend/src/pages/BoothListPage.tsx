@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
-import { MapPin, Plus, Trash2, BarChart3, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
-import { fetchBooths, fetchCities, createBooth, deleteBooth } from "@/api/booths";
+import { MapPin, Plus, Trash2, BarChart3, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Download } from "lucide-react";
+import { fetchBooths, fetchCities, createBooth, deleteBooth, exportBoothsCsv } from "@/api/booths";
 import { BoothForm } from "@/components/BoothForm";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -73,6 +73,7 @@ export function BoothListPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>(parseSortDirectionFromParams(searchParams));
   const [createServerErrors, setCreateServerErrors] = useState<Record<string, string>>({});
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; booth: Booth | null }>({ open: false, booth: null });
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -229,6 +230,15 @@ export function BoothListPage() {
     }
   };
 
+  const handleExportCsv = async () => {
+    setIsExporting(true);
+    try {
+      await exportBoothsCsv(city || undefined, status || undefined, debouncedKeyword || undefined);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handlePrevPage = () => {
     if (currentPage > 1) {
       const newPage = currentPage - 1;
@@ -340,6 +350,14 @@ export function BoothListPage() {
             className="pl-9"
           />
         </div>
+        <Button
+          variant="outline"
+          onClick={handleExportCsv}
+          disabled={isExporting}
+        >
+          <Download className="h-4 w-4" />
+          {isExporting ? "导出中..." : "导出 CSV"}
+        </Button>
       </div>
 
       <Card>
