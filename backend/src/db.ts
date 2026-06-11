@@ -8,6 +8,7 @@ import {
   BoothStatus,
   InspectionRecord,
   InspectionRecordInput,
+  InspectionRecordUpdateInput,
   PaginatedResult,
 } from "./types";
 
@@ -151,6 +152,25 @@ export function createInspectionRecord(input: InspectionRecordInput): Inspection
 export function deleteInspectionRecord(id: number, boothId: number): boolean {
   const result = db.prepare("DELETE FROM inspection_records WHERE id = ? AND booth_id = ?").run(id, boothId);
   return result.changes > 0;
+}
+
+export function updateInspectionRecord(
+  id: number,
+  boothId: number,
+  input: InspectionRecordUpdateInput
+): InspectionRecord | undefined {
+  const existing = db
+    .prepare("SELECT * FROM inspection_records WHERE id = ? AND booth_id = ?")
+    .get(id, boothId) as InspectionRecord | undefined;
+  if (!existing) return undefined;
+
+  db.prepare(
+    "UPDATE inspection_records SET inspector_name = ?, remarks = ? WHERE id = ?"
+  ).run(input.inspector_name, input.remarks, id);
+
+  return db
+    .prepare("SELECT * FROM inspection_records WHERE id = ?")
+    .get(id) as InspectionRecord;
 }
 
 export function getCities(): string[] {

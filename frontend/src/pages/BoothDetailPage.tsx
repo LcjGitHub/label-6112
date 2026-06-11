@@ -5,7 +5,7 @@ import { ArrowLeft, MapPin, Pencil, Trash2, Plus, ClipboardList, User, Calendar,
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { fetchBooth, updateBooth, deleteBooth, fetchInspections, createInspection, deleteInspection } from "@/api/booths";
+import { fetchBooth, updateBooth, deleteBooth, fetchInspections, createInspection, deleteInspection, updateInspection } from "@/api/booths";
 import { BoothForm } from "@/components/BoothForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +22,13 @@ const inspectionSchema = z.object({
 });
 
 type InspectionFormValues = z.infer<typeof inspectionSchema>;
+
+const inspectionEditSchema = z.object({
+  inspector_name: z.string().min(1, "请输入巡检人姓名"),
+  remarks: z.string().min(1, "请输入备注说明").max(500, "备注不能超过500字"),
+});
+
+type InspectionEditFormValues = z.infer<typeof inspectionEditSchema>;
 
 interface Toast {
   id: number;
@@ -42,6 +49,9 @@ export function BoothDetailPage() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [editingRecordId, setEditingRecordId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState<InspectionEditFormValues>({ inspector_name: "", remarks: "" });
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>({
     open: false,
     target: "booth",
@@ -128,12 +138,50 @@ export function BoothDetailPage() {
     },
   });
 
+  const updateInspectionMutation = useMutation({
+    mutationFn: ({ recordId, values }: { recordId: number; values: InspectionEditFormValues }) =>
+      updateInspection(boothId, recordId, values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inspections", boothId] });
+      setEditingRecordId(null);
+      setEditErrors({});
+      showToast("巡检记录已更新");
+    },
+  });
+
   function handleConfirmDelete() {
     if (deleteDialog.target === "booth") {
       deleteBoothMutation.mutate();
     } else if (deleteDialog.target === "inspection" && deleteDialog.record) {
       deleteInspectionMutation.mutate(deleteDialog.record.id);
     }
+  }
+
+  function startEditRecord(record: InspectionRecord) {
+    setEditingRecordId(record.id);
+    setEditForm({ inspector_name: record.inspector_name, remarks: record.remarks });
+    setEditErrors({});
+  }
+
+  function cancelEditRecord() {
+    setEditingRecordId(null);
+    setEditErrors({});
+  }
+
+  function handleEditSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (editingRecordId === null) return;
+    const result = inspectionEditSchema.safeParse(editForm);
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      for (const issue of result.error.issues) {
+        const field = issue.path[0] as string;
+        if (!fieldErrors[field]) fieldErrors[field] = issue.message;
+      }
+      setEditErrors(fieldErrors);
+      return;
+    }
+    updateInspectionMutation.mutate({ recordId: editingRecordId, values: result.data });
   }
 
   if (Number.isNaN(boothId)) {
@@ -376,36 +424,101 @@ export function BoothDetailPage() {
                     key={record.id}
                     className="p-4 rounded-lg border bg-card hover:bg-accent/30 transition-colors"
                   >
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-4 text-sm">
-                        <div className="flex items-center gap-1">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">{record.inspector_name}</span>
+                    {editingRecordId === record.id ? (
+                      <form onSubmit={handleEditSubmit} className="space-y-3">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <Label htmlFor={`edit-inspector-${record.id}`} className="text-xs">
+                              <User className="h-3 w-3 inline mr-1" />
+                              巡检人姓名 <span className="text-destructive">*</span>
+                            </Label>
+                            <Input
+                              id={`edit-inspector-${record.id}`}
+                              value={editForm.inspector_name}
+                              onChange={(e) => setEditForm((f) => ({ ...f, inspector_name: e.target.value }))}
+                              placeholder="请输入巡检人姓名"
+                            />
+                            {editErrors.inspector_name && (
+                              <p className="text-xs text-destructive">{editErrors.inspector_name}</p>
+                            )}
+                          </div>
+                          <div className="flex items-end text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-4 w-4" />
+                              <span>{record.inspection_date}</span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">{record.inspection_date}</span>
+                        <div className="space-y-1">
+                          <Label htmlFor={`edit-remarks-${record.id}`} className="text-xs">
+                            <MessageSquare className="h-3 w-3 inline mr-1" />
+                            备注说明 <span className="text-destructive">*</span>
+                          </Label>
+                          <textarea
+                            id={`edit-remarks-${record.id}`}
+                            rows={2}
+                            className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                            value={editForm.remarks}
+                            onChange={(e) => setEditForm((f) => ({ ...f, remarks: e.target.value }))}
+                            placeholder="请输入备注说明"
+                          />
+                          {editErrors.remarks && (
+                            <p className="text-xs text-destructive">{editErrors.remarks}</p>
+                          )}
                         </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        disabled={deleteInspectionMutation.isPending}
-                        onClick={() =>
-                          setDeleteDialog({ open: true, target: "inspection", record })
-                        }
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    {record.remarks ? (
-                      <div className="mt-2 pt-2 border-t">
-                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                          {record.remarks}
-                        </p>
-                      </div>
-                    ) : null}
+                        <div className="flex gap-2">
+                          <Button type="submit" size="sm" disabled={updateInspectionMutation.isPending}>
+                            {updateInspectionMutation.isPending ? "保存中..." : "保存"}
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" onClick={cancelEditRecord}>
+                            取消
+                          </Button>
+                        </div>
+                      </form>
+                    ) : (
+                      <>
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-4 text-sm">
+                            <div className="flex items-center gap-1">
+                              <User className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-medium">{record.inspector_name}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-muted-foreground">{record.inspection_date}</span>
+                            </div>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-muted-foreground hover:text-foreground hover:bg-accent"
+                              onClick={() => startEditRecord(record)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              disabled={deleteInspectionMutation.isPending}
+                              onClick={() =>
+                                setDeleteDialog({ open: true, target: "inspection", record })
+                              }
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        {record.remarks ? (
+                          <div className="mt-2 pt-2 border-t">
+                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                              {record.remarks}
+                            </p>
+                          </div>
+                        ) : null}
+                      </>
+                    )}
                   </div>
                 ))}
               </div>

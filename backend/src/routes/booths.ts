@@ -9,9 +9,10 @@ import {
   getStatistics,
   getInspectionsByBoothId,
   createInspectionRecord,
+  updateInspectionRecord,
   deleteInspectionRecord,
 } from "../db";
-import { BoothInput, BoothStatus, InspectionRecordInput } from "../types";
+import { BoothInput, BoothStatus, InspectionRecordInput, InspectionRecordUpdateInput } from "../types";
 
 const router = Router();
 
@@ -182,6 +183,42 @@ router.post("/:id/inspections", (req: Request, res: Response) => {
   }
   const record = createInspectionRecord(result.input);
   res.status(201).json(record);
+});
+
+router.put("/:id/inspections/:recordId", (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const recordId = Number(req.params.recordId);
+  if (Number.isNaN(id) || Number.isNaN(recordId)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const booth = getBoothById(id);
+  if (!booth) {
+    res.status(404).json({ error: "Booth not found" });
+    return;
+  }
+  const { inspector_name, remarks } = req.body as Record<string, unknown>;
+  const errors: Record<string, string> = {};
+  if (typeof inspector_name !== "string" || inspector_name.trim().length === 0) {
+    errors.inspector_name = "请输入巡检人姓名";
+  }
+  if (typeof remarks !== "string" || remarks.trim().length === 0) {
+    errors.remarks = "请输入备注说明";
+  }
+  if (Object.keys(errors).length > 0) {
+    res.status(400).json({ error: "Validation failed", details: errors });
+    return;
+  }
+  const input: InspectionRecordUpdateInput = {
+    inspector_name: (inspector_name as string).trim(),
+    remarks: (remarks as string).trim(),
+  };
+  const record = updateInspectionRecord(recordId, id, input);
+  if (!record) {
+    res.status(404).json({ error: "Inspection record not found" });
+    return;
+  }
+  res.json(record);
 });
 
 router.delete("/:id/inspections/:recordId", (req: Request, res: Response) => {

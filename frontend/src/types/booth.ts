@@ -49,6 +49,11 @@ export interface InspectionRecordInput {
   remarks: string;
 }
 
+export interface InspectionRecordUpdateInput {
+  inspector_name: string;
+  remarks: string;
+}
+
 export interface PaginatedResult<T> {
   data: T[];
   total: number;

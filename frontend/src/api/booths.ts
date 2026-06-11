@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { Booth, BoothInput, BoothStatistics, InspectionRecord, InspectionRecordInput, PaginatedResult } from "@/types/booth";
+import type { Booth, BoothInput, BoothStatistics, InspectionRecord, InspectionRecordInput, InspectionRecordUpdateInput, PaginatedResult } from "@/types/booth";
 
 const api = axios.create({ baseURL: "/api" });
 
@@ -65,4 +65,13 @@ export async function createInspection(
 
 export async function deleteInspection(boothId: number, recordId: number): Promise<void> {
   await api.delete(`/booths/${boothId}/inspections/${recordId}`);
+}
+
+export async function updateInspection(
+  boothId: number,
+  recordId: number,
+  input: InspectionRecordUpdateInput
+): Promise<InspectionRecord> {
+  const { data } = await api.put<InspectionRecord>(`/booths/${boothId}/inspections/${recordId}`, input);
+  return data;
 }
