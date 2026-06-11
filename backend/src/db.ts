@@ -11,6 +11,8 @@ import {
   InspectionRecordInput,
   InspectionRecordUpdateInput,
   LatestInspection,
+  OperationLog,
+  OperationType,
   PaginatedResult,
   SortDirection,
 } from "./types";
@@ -35,6 +37,15 @@ const SCHEMA_SQL = `
     inspection_date TEXT NOT NULL,
     remarks TEXT NOT NULL DEFAULT '',
     FOREIGN KEY (booth_id) REFERENCES booths(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS operation_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    operation_type TEXT NOT NULL CHECK(operation_type IN ('create', 'update', 'delete')),
+    booth_id INTEGER NOT NULL,
+    booth_address TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    created_at TEXT NOT NULL
   )
 `;
 
@@ -197,7 +208,10 @@ export function createBooth(input: BoothInput): Booth {
      VALUES (@city, @address, @longitude, @latitude, @status, @discovery_date, @photo_url, @remark)`
   );
   const result = stmt.run(input);
-  return getBoothById(result.lastInsertRowid as number)!;
+  const boothId = result.lastInsertRowid as number;
+  const booth = getBoothById(boothId)!;
+  createOperationLog("create", boothId, input.address, `创建电话亭：${input.address}（${input.city}）`);
+  return booth;
 }
 
 export function updateBooth(id: number, input: BoothInput): Booth | undefined {
@@ -212,12 +226,23 @@ export function updateBooth(id: number, input: BoothInput): Booth | undefined {
      WHERE id = @id`
   ).run({ ...input, id });
 
-  return getBoothById(id);
+  const updated = getBoothById(id);
+  if (updated) {
+    createOperationLog("update", id, input.address, `更新电话亭：${input.address}（${input.city}）`);
+  }
+  return updated;
 }
 
 export function deleteBooth(id: number): boolean {
+  const existing = getBoothById(id);
+  if (!existing) return false;
+
   const result = db.prepare("DELETE FROM booths WHERE id = ?").run(id);
-  return result.changes > 0;
+  if (result.changes > 0) {
+    createOperationLog("delete", id, existing.address, `删除电话亭：${existing.address}（${existing.city}）`);
+    return true;
+  }
+  return false;
 }
 
 export function getInspectionsByBoothId(boothId: number): InspectionRecord[] {
@@ -286,6 +311,51 @@ export function getStatistics(): BoothStatistics {
   }
 
   return { total, byStatus, byCity };
+}
+
+export function createOperationLog(
+  operationType: OperationType,
+  boothId: number,
+  boothAddress: string,
+  summary: string
+): OperationLog {
+  const now = new Date().toISOString();
+  const stmt = db.prepare(
+    `INSERT INTO operation_logs (operation_type, booth_id, booth_address, summary, created_at)
+     VALUES (?, ?, ?, ?, ?)`
+  );
+  const result = stmt.run(operationType, boothId, boothAddress, summary, now);
+  return db
+    .prepare("SELECT * FROM operation_logs WHERE id = ?")
+    .get(result.lastInsertRowid as number) as OperationLog;
+}
+
+export function getOperationLogs(
+  page: number = 1,
+  pageSize: number = 10
+): PaginatedResult<OperationLog> {
+  const VALID_PAGE_SIZES = [10, 20, 50];
+  const validPageSize = VALID_PAGE_SIZES.includes(Math.floor(pageSize)) ? Math.floor(pageSize) : 10;
+
+  const countSql = "SELECT COUNT(*) as cnt FROM operation_logs";
+  const total = (db.prepare(countSql).get() as { cnt: number }).cnt;
+
+  const totalPages = Math.max(1, Math.ceil(total / validPageSize));
+  let validPage = Math.max(1, Math.floor(page) || 1);
+  if (validPage > totalPages) {
+    validPage = totalPages;
+  }
+  const offset = (validPage - 1) * validPageSize;
+
+  const dataSql = "SELECT * FROM operation_logs ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?";
+  const data = db.prepare(dataSql).all(validPageSize, offset) as OperationLog[];
+
+  return {
+    data,
+    total,
+    page: validPage,
+    pageSize: validPageSize,
+  };
 }
 
 const BOOTH_SEED_DATA: BoothInput[] = [

@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import boothsRouter from "./routes/booths";
+import operationLogsRouter from "./routes/operation-logs";
 import { seedIfEmpty } from "./db";
 
 export function createApp(): express.Express {
@@ -10,6 +11,7 @@ export function createApp(): express.Express {
   app.use(express.json());
 
   app.use("/api/booths", boothsRouter);
+  app.use("/api/operation-logs", operationLogsRouter);
 
   return app;
 }

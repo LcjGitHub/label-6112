@@ -65,6 +65,23 @@ export interface InspectionRecordUpdateInput {
   remarks: string;
 }
 
+export type OperationType = "create" | "update" | "delete";
+
+export interface OperationLog {
+  id: number;
+  operation_type: OperationType;
+  booth_id: number;
+  booth_address: string;
+  summary: string;
+  created_at: string;
+}
+
+export const OPERATION_TYPE_LABELS: Record<OperationType, string> = {
+  create: "创建",
+  update: "更新",
+  delete: "删除",
+};
+
 export interface PaginatedResult<T> {
   data: T[];
   total: number;

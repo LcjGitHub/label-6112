@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { Booth, BoothInput, BoothSortField, BoothStatistics, InspectionRecord, InspectionRecordInput, InspectionRecordUpdateInput, PaginatedResult, SortDirection } from "@/types/booth";
+import type { Booth, BoothInput, BoothSortField, BoothStatistics, InspectionRecord, InspectionRecordInput, InspectionRecordUpdateInput, OperationLog, PaginatedResult, SortDirection } from "@/types/booth";
 
 const api = axios.create({ baseURL: "/api" });
 
@@ -107,4 +107,16 @@ export async function exportBoothsCsv(
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+export async function fetchOperationLogs(
+  page: number = 1,
+  pageSize: number = 10
+): Promise<PaginatedResult<OperationLog>> {
+  const params: Record<string, number> = {
+    page,
+    pageSize,
+  };
+  const { data } = await api.get<PaginatedResult<OperationLog>>("/operation-logs", { params });
+  return data;
 }

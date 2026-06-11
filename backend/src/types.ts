@@ -60,6 +60,17 @@ export interface InspectionRecordUpdateInput {
   remarks: string;
 }
 
+export type OperationType = "create" | "update" | "delete";
+
+export interface OperationLog {
+  id: number;
+  operation_type: OperationType;
+  booth_id: number;
+  booth_address: string;
+  summary: string;
+  created_at: string;
+}
+
 export interface PaginatedResult<T> {
   data: T[];
   total: number;
