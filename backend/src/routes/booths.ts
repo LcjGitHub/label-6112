@@ -77,8 +77,10 @@ router.get("/", (req: Request, res: Response) => {
   const city = req.query.city as string | undefined;
   const status = req.query.status as string | undefined;
   const keyword = req.query.keyword as string | undefined;
-  const booths = getAllBooths(city, status, keyword);
-  res.json(booths);
+  const page = Number(req.query.page);
+  const pageSize = Number(req.query.pageSize);
+  const result = getAllBooths(city, status, keyword, page, pageSize);
+  res.json(result);
 });
 
 router.get("/cities", (_req: Request, res: Response) => {

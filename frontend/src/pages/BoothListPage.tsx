@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { MapPin, Plus, Trash2, BarChart3, Search } from "lucide-react";
+import { MapPin, Plus, Trash2, BarChart3, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { fetchBooths, fetchCities, createBooth, deleteBooth } from "@/api/booths";
 import { BoothForm } from "@/components/BoothForm";
 import { Button } from "@/components/ui/button";
@@ -22,8 +22,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { BoothStatus } from "@/types/booth";
+import type { Booth, BoothStatus, PaginatedResult } from "@/types/booth";
 import { STATUS_LABELS } from "@/types/booth";
+
+const DEFAULT_PAGE_SIZE = 10;
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
 export function BoothListPage() {
   const queryClient = useQueryClient();
@@ -33,26 +36,48 @@ export function BoothListPage() {
   const [debouncedKeyword, setDebouncedKeyword] = useState<string>("");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [page, setPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       setDebouncedKeyword(keywordInput.trim());
+      setPage(1);
     }, 300);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [keywordInput]);
 
+  const handleCityChange = (v: string) => {
+    setCity(v === "all" ? "" : v);
+    setPage(1);
+  };
+
+  const handleStatusChange = (v: string) => {
+    setStatus(v === "all" ? "" : v);
+    setPage(1);
+  };
+
+  const handlePageSizeChange = (v: string) => {
+    setPageSize(Number(v));
+    setPage(1);
+  };
+
   const { data: cities = [] } = useQuery({
     queryKey: ["cities"],
     queryFn: fetchCities,
   });
 
-  const { data: booths = [], isLoading, isError } = useQuery({
-    queryKey: ["booths", city, status, debouncedKeyword],
-    queryFn: () => fetchBooths(city || undefined, status || undefined, debouncedKeyword || undefined),
+  const emptyResult: PaginatedResult<Booth> = { data: [], total: 0, page: 1, pageSize: DEFAULT_PAGE_SIZE };
+  const { data: paginatedResult = emptyResult, isLoading, isError } = useQuery({
+    queryKey: ["booths", city, status, debouncedKeyword, page, pageSize],
+    queryFn: () => fetchBooths(city || undefined, status || undefined, debouncedKeyword || undefined, page, pageSize),
   });
+
+  const { data: booths = [], total = 0, page: currentPage, pageSize: currentPageSize } = paginatedResult;
+  const totalPages = Math.max(1, Math.ceil(total / currentPageSize));
 
   const createMutation = useMutation({
     mutationFn: createBooth,
@@ -72,6 +97,14 @@ export function BoothListPage() {
       queryClient.invalidateQueries({ queryKey: ["statistics"] });
     },
   });
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) setPage(currentPage - 1);
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) setPage(currentPage + 1);
+  };
 
   return (
     <div className="container mx-auto max-w-6xl py-8 px-4">
@@ -114,7 +147,7 @@ export function BoothListPage() {
         <div className="w-48">
           <Select
             value={city || "all"}
-            onValueChange={(v) => setCity(v === "all" ? "" : v)}
+            onValueChange={handleCityChange}
           >
             <SelectTrigger>
               <SelectValue placeholder="筛选城市" />
@@ -130,7 +163,7 @@ export function BoothListPage() {
         <div className="w-48">
           <Select
             value={status || "all"}
-            onValueChange={(v) => setStatus(v === "all" ? "" : v)}
+            onValueChange={handleStatusChange}
           >
             <SelectTrigger>
               <SelectValue placeholder="筛选状态" />
@@ -159,55 +192,104 @@ export function BoothListPage() {
           {isLoading && <p className="p-6 text-muted-foreground">加载中...</p>}
           {isError && <p className="p-6 text-destructive">加载失败，请确认后端已启动。</p>}
           {!isLoading && !isError && (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>城市</TableHead>
-                  <TableHead>地址</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead>发现日期</TableHead>
-                  <TableHead className="w-24">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {booths.length === 0 ? (
+            <>
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">
-                      {city || status || debouncedKeyword ? "未找到匹配地址" : "暂无数据"}
-                    </TableCell>
+                    <TableHead>城市</TableHead>
+                    <TableHead>地址</TableHead>
+                    <TableHead>状态</TableHead>
+                    <TableHead>发现日期</TableHead>
+                    <TableHead className="w-24">操作</TableHead>
                   </TableRow>
-                ) : (
-                  booths.map((booth) => (
-                    <TableRow key={booth.id}>
-                      <TableCell>{booth.city}</TableCell>
-                      <TableCell>
-                        <Link
-                          to={`/booths/${booth.id}`}
-                          className="text-primary hover:underline"
-                        >
-                          {booth.address}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{STATUS_LABELS[booth.status]}</TableCell>
-                      <TableCell>{booth.discovery_date}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            if (confirm("确认删除该电话亭？")) {
-                              deleteMutation.mutate(booth.id);
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                </TableHeader>
+                <TableBody>
+                  {booths.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        {city || status || debouncedKeyword ? "未找到匹配地址" : "暂无数据"}
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    booths.map((booth) => (
+                      <TableRow key={booth.id}>
+                        <TableCell>{booth.city}</TableCell>
+                        <TableCell>
+                          <Link
+                            to={`/booths/${booth.id}`}
+                            className="text-primary hover:underline"
+                          >
+                            {booth.address}
+                          </Link>
+                        </TableCell>
+                        <TableCell>{STATUS_LABELS[booth.status]}</TableCell>
+                        <TableCell>{booth.discovery_date}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              if (confirm("确认删除该电话亭？")) {
+                                deleteMutation.mutate(booth.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+
+              <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4 border-t border-border">
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <span>共 <span className="font-medium text-foreground">{total}</span> 条</span>
+                  <div className="flex items-center gap-2">
+                    <span>每页</span>
+                    <Select
+                      value={String(currentPageSize)}
+                      onValueChange={handlePageSizeChange}
+                    >
+                      <SelectTrigger className="w-20 h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAGE_SIZE_OPTIONS.map((size) => (
+                          <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span>条</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    第 <span className="font-medium text-foreground">{currentPage}</span> / {totalPages} 页
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handlePrevPage}
+                    disabled={currentPage <= 1}
+                    className="h-8 w-8"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleNextPage}
+                    disabled={currentPage >= totalPages}
+                    className="h-8 w-8"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

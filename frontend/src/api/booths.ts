@@ -1,15 +1,23 @@
 import axios from "axios";
-import type { Booth, BoothInput, BoothStatistics, InspectionRecord, InspectionRecordInput } from "@/types/booth";
+import type { Booth, BoothInput, BoothStatistics, InspectionRecord, InspectionRecordInput, PaginatedResult } from "@/types/booth";
 
 const api = axios.create({ baseURL: "/api" });
 
-export async function fetchBooths(city?: string, status?: string, keyword?: string): Promise<Booth[]> {
-  const params: Record<string, string> = {};
+export async function fetchBooths(
+  city?: string,
+  status?: string,
+  keyword?: string,
+  page: number = 1,
+  pageSize: number = 10
+): Promise<PaginatedResult<Booth>> {
+  const params: Record<string, string | number> = {};
   if (city) params.city = city;
   if (status) params.status = status;
   const trimmedKeyword = keyword?.trim();
   if (trimmedKeyword) params.keyword = trimmedKeyword;
-  const { data } = await api.get<Booth[]>("/booths", { params });
+  params.page = page;
+  params.pageSize = pageSize;
+  const { data } = await api.get<PaginatedResult<Booth>>("/booths", { params });
   return data;
 }
 

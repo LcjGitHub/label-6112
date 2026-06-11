@@ -8,6 +8,7 @@ import {
   BoothStatus,
   InspectionRecord,
   InspectionRecordInput,
+  PaginatedResult,
 } from "./types";
 
 const dataDir = path.resolve(__dirname, "../../data");
@@ -40,10 +41,15 @@ db.exec(`
   )
 `);
 
-export function getAllBooths(city?: string, status?: string, keyword?: string): Booth[] {
-  let sql = "SELECT * FROM booths";
+export function getAllBooths(
+  city?: string,
+  status?: string,
+  keyword?: string,
+  page: number = 1,
+  pageSize: number = 10
+): PaginatedResult<Booth> {
   const conditions: string[] = [];
-  const params: string[] = [];
+  const params: (string | number)[] = [];
 
   if (city) {
     conditions.push("city = ?");
@@ -60,12 +66,25 @@ export function getAllBooths(city?: string, status?: string, keyword?: string): 
     params.push(`%${escapedKeyword}%`);
   }
 
-  if (conditions.length > 0) {
-    sql += " WHERE " + conditions.join(" AND ");
-  }
-  sql += " ORDER BY id ASC";
+  const whereClause = conditions.length > 0 ? " WHERE " + conditions.join(" AND ") : "";
 
-  return db.prepare(sql).all(...params) as Booth[];
+  const countSql = "SELECT COUNT(*) as cnt FROM booths" + whereClause;
+  const total = (db.prepare(countSql).get(...params) as { cnt: number }).cnt;
+
+  const validPage = Math.max(1, Math.floor(page) || 1);
+  const validPageSize = Math.max(1, Math.min(100, Math.floor(pageSize) || 10));
+  const offset = (validPage - 1) * validPageSize;
+
+  const dataSql = "SELECT * FROM booths" + whereClause + " ORDER BY id ASC LIMIT ? OFFSET ?";
+  const dataParams = [...params, validPageSize, offset];
+  const data = db.prepare(dataSql).all(...dataParams) as Booth[];
+
+  return {
+    data,
+    total,
+    page: validPage,
+    pageSize: validPageSize,
+  };
 }
 
 export function getBoothById(id: number): Booth | undefined {
