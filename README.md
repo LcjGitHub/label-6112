@@ -22,7 +22,28 @@
 
 ## 快速启动
 
-### 1. 后端（端口 3000）
+### 方式一：根目录一键启动（推荐）
+
+在仓库根目录执行以下命令，同时启动前后端：
+
+```bash
+npm run install:all
+npm run dev
+```
+
+- 后端运行于：http://localhost:3000
+- 前端运行于：http://localhost:3101
+
+其他根目录快捷命令：
+
+```bash
+npm run typecheck    # 前后端 TypeScript 类型检查
+npm run build        # 前后端构建
+```
+
+### 方式二：分别启动
+
+#### 1. 后端（端口 3000）
 
 ```bash
 cd backend
@@ -34,7 +55,7 @@ npm run dev
 
 首次启动会自动创建数据库并写入 5 条 seed 数据。
 
-### 2. 前端（端口 3101）
+#### 2. 前端（端口 3101）
 
 ```bash
 cd frontend
