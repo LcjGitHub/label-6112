@@ -102,17 +102,20 @@ export function StatisticsPage() {
               ) : (
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   {Object.entries(statistics.byCity).map(([city, count]) => (
-                    <div
+                    <button
                       key={city}
-                      className="flex items-center gap-3 rounded-lg border p-4 cursor-pointer hover:border-primary hover:shadow-sm transition-all"
+                      type="button"
+                      className="flex w-full items-start gap-3 rounded-lg border p-4 text-left hover:border-primary hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-all"
                       onClick={() => handleCityClick(city)}
+                      title={`点击查看${city}的电话亭列表`}
                     >
-                      <MapPin className="h-6 w-6 text-primary" />
-                      <div>
+                      <MapPin className="h-6 w-6 text-primary shrink-0 mt-1" />
+                      <div className="min-w-0">
                         <p className="text-2xl font-bold">{count}</p>
-                        <p className="text-sm text-muted-foreground">{city}</p>
+                        <p className="text-sm text-muted-foreground truncate">{city}</p>
+                        <p className="text-xs text-muted-foreground mt-1">点击查看列表</p>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}

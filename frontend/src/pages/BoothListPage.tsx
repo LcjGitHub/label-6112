@@ -87,9 +87,13 @@ export function BoothListPage() {
   const totalPages = Math.max(1, Math.ceil(total / currentPageSize));
 
   useEffect(() => {
+    document.title = "电话亭档案";
+  }, []);
+
+  useEffect(() => {
     const cityParam = searchParams.get("city");
-    if (cityParam !== null && cityParam !== city) {
-      setCity(cityParam);
+    if (cityParam !== city) {
+      setCity(cityParam || "");
       setPage(1);
     }
   }, [searchParams]);
