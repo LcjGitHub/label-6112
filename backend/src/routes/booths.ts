@@ -76,7 +76,8 @@ function validateInspectionInput(
 router.get("/", (req: Request, res: Response) => {
   const city = req.query.city as string | undefined;
   const status = req.query.status as string | undefined;
-  const booths = getAllBooths(city, status);
+  const keyword = req.query.keyword as string | undefined;
+  const booths = getAllBooths(city, status, keyword);
   res.json(booths);
 });
 

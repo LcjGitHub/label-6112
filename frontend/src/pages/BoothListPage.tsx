@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { MapPin, Plus, Trash2, BarChart3 } from "lucide-react";
+import { MapPin, Plus, Trash2, BarChart3, Search } from "lucide-react";
 import { fetchBooths, fetchCities, createBooth, deleteBooth } from "@/api/booths";
 import { BoothForm } from "@/components/BoothForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -28,7 +29,20 @@ export function BoothListPage() {
   const queryClient = useQueryClient();
   const [city, setCity] = useState<string>("");
   const [status, setStatus] = useState<string>("");
+  const [keywordInput, setKeywordInput] = useState<string>("");
+  const [debouncedKeyword, setDebouncedKeyword] = useState<string>("");
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showForm, setShowForm] = useState(false);
+
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      setDebouncedKeyword(keywordInput);
+    }, 300);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [keywordInput]);
 
   const { data: cities = [] } = useQuery({
     queryKey: ["cities"],
@@ -36,8 +50,8 @@ export function BoothListPage() {
   });
 
   const { data: booths = [], isLoading, isError } = useQuery({
-    queryKey: ["booths", city, status],
-    queryFn: () => fetchBooths(city || undefined, status || undefined),
+    queryKey: ["booths", city, status, debouncedKeyword],
+    queryFn: () => fetchBooths(city || undefined, status || undefined, debouncedKeyword || undefined),
   });
 
   const createMutation = useMutation({
@@ -96,7 +110,7 @@ export function BoothListPage() {
         </Card>
       )}
 
-      <div className="mb-4 flex flex-wrap gap-4">
+      <div className="mb-4 flex flex-wrap items-center gap-4">
         <div className="w-48">
           <Select
             value={city || "all"}
@@ -128,6 +142,15 @@ export function BoothListPage() {
               ))}
             </SelectContent>
           </Select>
+        </div>
+        <div className="relative w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="搜索地址..."
+            value={keywordInput}
+            onChange={(e) => setKeywordInput(e.target.value)}
+            className="pl-9"
+          />
         </div>
       </div>
 

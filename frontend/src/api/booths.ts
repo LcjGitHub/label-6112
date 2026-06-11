@@ -3,10 +3,11 @@ import type { Booth, BoothInput, BoothStatistics, InspectionRecord, InspectionRe
 
 const api = axios.create({ baseURL: "/api" });
 
-export async function fetchBooths(city?: string, status?: string): Promise<Booth[]> {
+export async function fetchBooths(city?: string, status?: string, keyword?: string): Promise<Booth[]> {
   const params: Record<string, string> = {};
   if (city) params.city = city;
   if (status) params.status = status;
+  if (keyword) params.keyword = keyword;
   const { data } = await api.get<Booth[]>("/booths", { params });
   return data;
 }

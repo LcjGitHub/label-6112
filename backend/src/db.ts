@@ -40,7 +40,7 @@ db.exec(`
   )
 `);
 
-export function getAllBooths(city?: string, status?: string): Booth[] {
+export function getAllBooths(city?: string, status?: string, keyword?: string): Booth[] {
   let sql = "SELECT * FROM booths";
   const conditions: string[] = [];
   const params: string[] = [];
@@ -52,6 +52,10 @@ export function getAllBooths(city?: string, status?: string): Booth[] {
   if (status) {
     conditions.push("status = ?");
     params.push(status);
+  }
+  if (keyword) {
+    conditions.push("address LIKE ?");
+    params.push(`%${keyword}%`);
   }
 
   if (conditions.length > 0) {
