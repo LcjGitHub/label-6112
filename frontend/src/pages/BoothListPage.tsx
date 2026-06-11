@@ -27,50 +27,78 @@ import type { Booth, BoothStatus, PaginatedResult } from "@/types/booth";
 import { STATUS_LABELS } from "@/types/booth";
 
 const DEFAULT_PAGE_SIZE = 10;
-const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
+
+function parsePageSizeFromParams(params: URLSearchParams): number {
+  const raw = Number(params.get("pageSize"));
+  return PAGE_SIZE_OPTIONS.includes(raw) ? raw : DEFAULT_PAGE_SIZE;
+}
+
+function parsePageFromParams(params: URLSearchParams): number {
+  const raw = Number(params.get("page"));
+  return Number.isInteger(raw) && raw >= 1 ? raw : 1;
+}
 
 export function BoothListPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [city, setCity] = useState<string>(searchParams.get("city") || "");
-  const [status, setStatus] = useState<string>("");
+  const [status, setStatus] = useState<string>(searchParams.get("status") || "");
   const [keywordInput, setKeywordInput] = useState<string>("");
-  const [debouncedKeyword, setDebouncedKeyword] = useState<string>("");
+  const [debouncedKeyword, setDebouncedKeyword] = useState<string>(searchParams.get("keyword") || "");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [page, setPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
+  const [page, setPage] = useState<number>(parsePageFromParams(searchParams));
+  const [pageSize, setPageSize] = useState<number>(parsePageSizeFromParams(searchParams));
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
-      setDebouncedKeyword(keywordInput.trim());
+      const trimmed = keywordInput.trim();
+      setDebouncedKeyword(trimmed);
       setPage(1);
+      syncToUrl(city, status, trimmed, 1, pageSize);
     }, 300);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [keywordInput]);
 
+  const syncToUrl = (
+    cityValue: string,
+    statusValue: string,
+    keywordValue: string,
+    pageValue: number,
+    pageSizeValue: number
+  ) => {
+    const params: Record<string, string> = {};
+    if (cityValue) params.city = cityValue;
+    if (statusValue) params.status = statusValue;
+    if (keywordValue) params.keyword = keywordValue;
+    if (pageValue > 1) params.page = String(pageValue);
+    if (pageSizeValue !== DEFAULT_PAGE_SIZE) params.pageSize = String(pageSizeValue);
+    setSearchParams(params);
+  };
+
   const handleCityChange = (v: string) => {
     const newCity = v === "all" ? "" : v;
     setCity(newCity);
     setPage(1);
-    if (newCity) {
-      setSearchParams({ city: newCity });
-    } else {
-      setSearchParams({});
-    }
+    syncToUrl(newCity, status, debouncedKeyword, 1, pageSize);
   };
 
   const handleStatusChange = (v: string) => {
-    setStatus(v === "all" ? "" : v);
+    const newStatus = v === "all" ? "" : v;
+    setStatus(newStatus);
     setPage(1);
+    syncToUrl(city, newStatus, debouncedKeyword, 1, pageSize);
   };
 
   const handlePageSizeChange = (v: string) => {
-    setPageSize(Number(v));
+    const newPageSize = Number(v);
+    setPageSize(newPageSize);
     setPage(1);
+    syncToUrl(city, status, debouncedKeyword, 1, newPageSize);
   };
 
   const { data: cities = [] } = useQuery({
@@ -93,10 +121,18 @@ export function BoothListPage() {
 
   useEffect(() => {
     const cityParam = searchParams.get("city");
-    if (cityParam !== city) {
-      setCity(cityParam || "");
-      setPage(1);
+    const statusParam = searchParams.get("status");
+    const keywordParam = searchParams.get("keyword");
+    const pageParam = parsePageFromParams(searchParams);
+    const pageSizeParam = parsePageSizeFromParams(searchParams);
+    if (cityParam !== city) setCity(cityParam || "");
+    if (statusParam !== status) setStatus(statusParam || "");
+    if (keywordParam !== debouncedKeyword) {
+      setDebouncedKeyword(keywordParam || "");
+      setKeywordInput(keywordParam || "");
     }
+    if (pageParam !== page) setPage(pageParam);
+    if (pageSizeParam !== pageSize) setPageSize(pageSizeParam);
   }, [searchParams]);
 
   useEffect(() => {
@@ -125,12 +161,23 @@ export function BoothListPage() {
   });
 
   const handlePrevPage = () => {
-    if (currentPage > 1) setPage(currentPage - 1);
+    if (currentPage > 1) {
+      const newPage = currentPage - 1;
+      setPage(newPage);
+      syncToUrl(city, status, debouncedKeyword, newPage, pageSize);
+    }
   };
 
   const handleNextPage = () => {
-    if (currentPage < totalPages) setPage(currentPage + 1);
+    if (currentPage < totalPages) {
+      const newPage = currentPage + 1;
+      setPage(newPage);
+      syncToUrl(city, status, debouncedKeyword, newPage, pageSize);
+    }
   };
+
+  const rangeStart = total === 0 ? 0 : (currentPage - 1) * currentPageSize + 1;
+  const rangeEnd = Math.min(currentPage * currentPageSize, total);
 
   const showTableLoading = isFetching;
 
@@ -293,8 +340,13 @@ export function BoothListPage() {
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4 border-t border-border">
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <span>共 <span className="font-medium text-foreground">{total}</span> 条</span>
+                <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                  <span>
+                    共 <span className="font-medium text-foreground">{total}</span> 条，
+                    显示 <span className="font-medium text-foreground">{rangeStart}</span>
+                    {" - "}
+                    <span className="font-medium text-foreground">{rangeEnd}</span> 条
+                  </span>
                   <div className="flex items-center gap-2">
                     <span>每页</span>
                     <Select

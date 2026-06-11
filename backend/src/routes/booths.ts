@@ -17,6 +17,7 @@ import { BoothInput, BoothStatus, InspectionRecordInput, InspectionRecordUpdateI
 const router = Router();
 
 const VALID_STATUSES: BoothStatus[] = ["available", "damaged", "demolished"];
+const VALID_PAGE_SIZES = [10, 20, 50];
 
 function validateInput(body: Record<string, unknown>): BoothInput | null {
   const { city, address, longitude, latitude, status, discovery_date, photo_url, remark } = body;
@@ -112,7 +113,8 @@ router.get("/", (req: Request, res: Response) => {
   const status = req.query.status as string | undefined;
   const keyword = req.query.keyword as string | undefined;
   const page = Number(req.query.page);
-  const pageSize = Number(req.query.pageSize);
+  const pageSizeRaw = Number(req.query.pageSize);
+  const pageSize = VALID_PAGE_SIZES.includes(pageSizeRaw) ? pageSizeRaw : 10;
   const result = getAllBooths(city, status, keyword, page, pageSize);
   res.json(result);
 });

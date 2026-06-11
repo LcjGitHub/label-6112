@@ -79,7 +79,8 @@ export function getAllBooths(
   const countSql = "SELECT COUNT(*) as cnt FROM booths" + whereClause;
   const total = (db.prepare(countSql).get(...params) as { cnt: number }).cnt;
 
-  const validPageSize = Math.max(1, Math.min(100, Math.floor(pageSize) || 10));
+  const VALID_PAGE_SIZES = [10, 20, 50];
+  const validPageSize = VALID_PAGE_SIZES.includes(Math.floor(pageSize)) ? Math.floor(pageSize) : 10;
   const totalPages = Math.max(1, Math.ceil(total / validPageSize));
   let validPage = Math.max(1, Math.floor(page) || 1);
   if (validPage > totalPages) {
