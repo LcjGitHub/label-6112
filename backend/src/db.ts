@@ -12,15 +12,7 @@ import {
   PaginatedResult,
 } from "./types";
 
-const dataDir = path.resolve(__dirname, "../../data");
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
-
-const dbPath = path.join(dataDir, "booths.db");
-const db = new Database(dbPath);
-
-db.exec(`
+const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS booths (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     city TEXT NOT NULL,
@@ -41,12 +33,41 @@ db.exec(`
     remarks TEXT NOT NULL DEFAULT '',
     FOREIGN KEY (booth_id) REFERENCES booths(id) ON DELETE CASCADE
   )
-`);
+`;
 
-try {
-  db.exec(`ALTER TABLE booths ADD COLUMN remark TEXT`);
-} catch (e) {
-  // Column already exists, ignore
+let db: Database.Database;
+
+function initDatabase(dbInstance?: Database.Database): void {
+  if (dbInstance) {
+    db = dbInstance;
+  } else {
+    const dataDir = path.resolve(__dirname, "../../data");
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    const dbPath = path.join(dataDir, "booths.db");
+    db = new Database(dbPath);
+  }
+
+  db.exec(SCHEMA_SQL);
+
+  try {
+    db.exec(`ALTER TABLE booths ADD COLUMN remark TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+}
+
+initDatabase();
+
+export function setDatabase(dbInstance: Database.Database): void {
+  db = dbInstance;
+  db.exec(SCHEMA_SQL);
+  try {
+    db.exec(`ALTER TABLE booths ADD COLUMN remark TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
 }
 
 export function getAllBooths(
