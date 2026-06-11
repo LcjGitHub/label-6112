@@ -3,9 +3,6 @@ import type { Booth, BoothInput, BoothStatistics } from "@/types/booth";
 
 const api = axios.create({ baseURL: "/api" });
 
-let statisticsCache: { data: BoothStatistics; timestamp: number } | null = null;
-const CACHE_TTL = 60 * 1000;
-
 export async function fetchBooths(city?: string, status?: string): Promise<Booth[]> {
   const params: Record<string, string> = {};
   if (city) params.city = city;
@@ -39,15 +36,6 @@ export async function deleteBooth(id: number): Promise<void> {
 }
 
 export async function fetchStatistics(): Promise<BoothStatistics> {
-  const now = Date.now();
-  if (statisticsCache && now - statisticsCache.timestamp < CACHE_TTL) {
-    return statisticsCache.data;
-  }
   const { data } = await api.get<BoothStatistics>("/booths/statistics");
-  statisticsCache = { data, timestamp: now };
   return data;
-}
-
-export function invalidateStatisticsCache(): void {
-  statisticsCache = null;
 }

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { MapPin, Plus, Trash2, BarChart3 } from "lucide-react";
-import { fetchBooths, fetchCities, createBooth, deleteBooth, invalidateStatisticsCache } from "@/api/booths";
+import { fetchBooths, fetchCities, createBooth, deleteBooth } from "@/api/booths";
 import { BoothForm } from "@/components/BoothForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,7 +46,6 @@ export function BoothListPage() {
       queryClient.invalidateQueries({ queryKey: ["booths"] });
       queryClient.invalidateQueries({ queryKey: ["cities"] });
       queryClient.invalidateQueries({ queryKey: ["statistics"] });
-      invalidateStatisticsCache();
       setShowForm(false);
     },
   });
@@ -57,7 +56,6 @@ export function BoothListPage() {
       queryClient.invalidateQueries({ queryKey: ["booths"] });
       queryClient.invalidateQueries({ queryKey: ["cities"] });
       queryClient.invalidateQueries({ queryKey: ["statistics"] });
-      invalidateStatisticsCache();
     },
   });
 

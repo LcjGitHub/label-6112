@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { BarChart3, ArrowLeft, MapPin, Phone } from "lucide-react";
@@ -19,6 +20,10 @@ export function StatisticsPage() {
     queryFn: fetchStatistics,
     staleTime: 60 * 1000,
   });
+
+  useEffect(() => {
+    document.title = "数据统计概览";
+  }, []);
 
   return (
     <div className="container mx-auto max-w-6xl py-8 px-4">
@@ -86,20 +91,24 @@ export function StatisticsPage() {
               <CardTitle className="text-lg">按城市分组</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                {Object.entries(statistics.byCity).map(([city, count]) => (
-                  <div
-                    key={city}
-                    className="flex items-center gap-3 rounded-lg border p-4"
-                  >
-                    <MapPin className="h-6 w-6 text-primary" />
-                    <div>
-                      <p className="text-2xl font-bold">{count}</p>
-                      <p className="text-sm text-muted-foreground">{city}</p>
+              {Object.keys(statistics.byCity).length === 0 ? (
+                <p className="text-center text-muted-foreground">暂无城市数据</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                  {Object.entries(statistics.byCity).map(([city, count]) => (
+                    <div
+                      key={city}
+                      className="flex items-center gap-3 rounded-lg border p-4"
+                    >
+                      <MapPin className="h-6 w-6 text-primary" />
+                      <div>
+                        <p className="text-2xl font-bold">{count}</p>
+                        <p className="text-sm text-muted-foreground">{city}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
