@@ -17,11 +17,15 @@ import {
   addFavorite,
   removeFavorite,
   isFavorited,
+  getAllTags,
+  setBoothTags,
+  getTagsByBoothId,
 } from "../db";
 import {
   validateBoothInput,
   validateInspectionInput,
   validateInspectionUpdateInput,
+  validateBoothTagInput,
 } from "../validators/booths";
 
 const router = Router();
@@ -47,6 +51,12 @@ router.get("/", (req: Request, res: Response) => {
   const city = req.query.city as string | undefined;
   const status = req.query.status as string | undefined;
   const keyword = req.query.keyword as string | undefined;
+  const tagIdRaw = req.query.tagId as string | undefined;
+  const tagId = tagIdRaw !== undefined && tagIdRaw !== "" ? Number(tagIdRaw) : undefined;
+  if (tagIdRaw !== undefined && tagIdRaw !== "" && (Number.isNaN(tagId) || tagId! <= 0)) {
+    res.status(400).json({ error: "Invalid tagId" });
+    return;
+  }
   const page = Number(req.query.page);
   const pageSizeRaw = Number(req.query.pageSize);
   const pageSize = VALID_PAGE_SIZES.includes(pageSizeRaw) ? pageSizeRaw : 10;
@@ -56,7 +66,7 @@ router.get("/", (req: Request, res: Response) => {
   const VALID_SORT_DIRECTIONS = ["asc", "desc"];
   const sortField = VALID_SORT_FIELDS.includes(sortFieldRaw as string) ? sortFieldRaw : undefined;
   const sortDirection = VALID_SORT_DIRECTIONS.includes(sortDirectionRaw as string) ? sortDirectionRaw : "asc";
-  res.json(getAllBooths(city, status, keyword, page, pageSize, sortField as "discovery_date" | "city" | undefined, sortDirection as "asc" | "desc"));
+  res.json(getAllBooths(city, status, keyword, page, pageSize, sortField as "discovery_date" | "city" | undefined, sortDirection as "asc" | "desc", tagId));
 });
 
 const STATUS_LABELS: Record<string, string> = {
@@ -77,8 +87,14 @@ router.get("/export", (req: Request, res: Response) => {
   const city = req.query.city as string | undefined;
   const status = req.query.status as string | undefined;
   const keyword = req.query.keyword as string | undefined;
+  const tagIdRaw = req.query.tagId as string | undefined;
+  const tagId = tagIdRaw !== undefined && tagIdRaw !== "" ? Number(tagIdRaw) : undefined;
+  if (tagIdRaw !== undefined && tagIdRaw !== "" && (Number.isNaN(tagId) || tagId! <= 0)) {
+    res.status(400).json({ error: "Invalid tagId" });
+    return;
+  }
 
-  const booths = getBoothsForExport(city, status, keyword);
+  const booths = getBoothsForExport(city, status, keyword, tagId);
 
   const headers = ["ID", "城市", "地址", "经度", "纬度", "状态", "发现日期", "备注"];
   const rows = booths.map((b) =>
@@ -258,6 +274,30 @@ router.get("/:id/favorite", (req: Request, res: Response) => {
   if (!sessionKey) { sendInvalidSessionKey(res); return; }
   if (!getBoothById(id)) { sendBoothNotFound(res); return; }
   res.json({ favorited: isFavorited(sessionKey, id) });
+});
+
+router.get("/tags/list", (_req: Request, res: Response) => {
+  res.json(getAllTags());
+});
+
+router.get("/:id/tags", (req: Request, res: Response) => {
+  const id = parseId(req.params.id);
+  if (id === null) { sendInvalidId(res); return; }
+  if (!getBoothById(id)) { sendBoothNotFound(res); return; }
+  res.json(getTagsByBoothId(id));
+});
+
+router.put("/:id/tags", (req: Request, res: Response) => {
+  const id = parseId(req.params.id);
+  if (id === null) { sendInvalidId(res); return; }
+  if (!getBoothById(id)) { sendBoothNotFound(res); return; }
+  const result = validateBoothTagInput(req.body);
+  if (!result.input) {
+    res.status(400).json({ error: "校验失败", details: result.errors });
+    return;
+  }
+  const tags = setBoothTags(id, result.input.tag_names);
+  res.json(tags);
 });
 
 export default router;

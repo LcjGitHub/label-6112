@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { MapPin, Plus, Trash2, BarChart3, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Download, History, Star } from "lucide-react";
-import { fetchBooths, fetchCities, createBooth, deleteBooth, exportBoothsCsv, fetchFavoriteIds } from "@/api/booths";
+import { fetchBooths, fetchCities, createBooth, deleteBooth, exportBoothsCsv, fetchFavoriteIds, fetchAllTags } from "@/api/booths";
 import { BoothForm } from "@/components/BoothForm";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -64,6 +64,10 @@ export function BoothListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [city, setCity] = useState<string>(searchParams.get("city") || "");
   const [status, setStatus] = useState<string>(searchParams.get("status") || "");
+  const tagIdRaw = searchParams.get("tagId");
+  const [tagId, setTagId] = useState<number | undefined>(
+    tagIdRaw && !Number.isNaN(Number(tagIdRaw)) ? Number(tagIdRaw) : undefined
+  );
   const [keywordInput, setKeywordInput] = useState<string>(searchParams.get("keyword") || "");
   const [debouncedKeyword, setDebouncedKeyword] = useState<string>(searchParams.get("keyword") || "");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -90,7 +94,7 @@ export function BoothListPage() {
       const trimmed = value.trim();
       setDebouncedKeyword(trimmed);
       setPage(1);
-      syncToUrl(city, status, trimmed, 1, pageSize, sortField, sortDirection);
+      syncToUrl(city, status, trimmed, 1, pageSize, sortField, sortDirection, tagId);
     }, 300);
   };
 
@@ -101,7 +105,8 @@ export function BoothListPage() {
     pageValue: number,
     pageSizeValue: number,
     sortFieldValue: BoothSortField | undefined,
-    sortDirectionValue: SortDirection
+    sortDirectionValue: SortDirection,
+    tagIdValue: number | undefined
   ) => {
     const params: Record<string, string> = {};
     if (cityValue) params.city = cityValue;
@@ -111,6 +116,7 @@ export function BoothListPage() {
     if (pageSizeValue !== DEFAULT_PAGE_SIZE) params.pageSize = String(pageSizeValue);
     if (sortFieldValue) params.sortField = sortFieldValue;
     if (sortDirectionValue !== "asc" || sortFieldValue) params.sortDirection = sortDirectionValue;
+    if (tagIdValue !== undefined) params.tagId = String(tagIdValue);
     setSearchParams(params);
   };
 
@@ -118,21 +124,28 @@ export function BoothListPage() {
     const newCity = v === "all" ? "" : v;
     setCity(newCity);
     setPage(1);
-    syncToUrl(newCity, status, debouncedKeyword, 1, pageSize, sortField, sortDirection);
+    syncToUrl(newCity, status, debouncedKeyword, 1, pageSize, sortField, sortDirection, tagId);
   };
 
   const handleStatusChange = (v: string) => {
     const newStatus = v === "all" ? "" : v;
     setStatus(newStatus);
     setPage(1);
-    syncToUrl(city, newStatus, debouncedKeyword, 1, pageSize, sortField, sortDirection);
+    syncToUrl(city, newStatus, debouncedKeyword, 1, pageSize, sortField, sortDirection, tagId);
+  };
+
+  const handleTagChange = (v: string) => {
+    const newTagId = v === "all" ? undefined : Number(v);
+    setTagId(newTagId);
+    setPage(1);
+    syncToUrl(city, status, debouncedKeyword, 1, pageSize, sortField, sortDirection, newTagId);
   };
 
   const handlePageSizeChange = (v: string) => {
     const newPageSize = Number(v);
     setPageSize(newPageSize);
     setPage(1);
-    syncToUrl(city, status, debouncedKeyword, 1, newPageSize, sortField, sortDirection);
+    syncToUrl(city, status, debouncedKeyword, 1, newPageSize, sortField, sortDirection, tagId);
   };
 
   const handleSort = (field: BoothSortField) => {
@@ -145,12 +158,17 @@ export function BoothListPage() {
     setSortField(newSortField);
     setSortDirection(finalDirection);
     setPage(1);
-    syncToUrl(city, status, debouncedKeyword, 1, pageSize, newSortField, finalDirection);
+    syncToUrl(city, status, debouncedKeyword, 1, pageSize, newSortField, finalDirection, tagId);
   };
 
   const { data: cities = [] } = useQuery({
     queryKey: ["cities"],
     queryFn: fetchCities,
+  });
+
+  const { data: allTags = [] } = useQuery({
+    queryKey: ["tags"],
+    queryFn: fetchAllTags,
   });
 
   const { data: favoriteIds = [] } = useQuery({
@@ -160,8 +178,8 @@ export function BoothListPage() {
 
   const emptyResult: PaginatedResult<Booth> = { data: [], total: 0, page: 1, pageSize: DEFAULT_PAGE_SIZE };
   const { data: paginatedResult = emptyResult, isLoading, isError, isFetching } = useQuery({
-    queryKey: ["booths", city, status, debouncedKeyword, page, pageSize, sortField, sortDirection],
-    queryFn: () => fetchBooths(city || undefined, status || undefined, debouncedKeyword || undefined, page, pageSize, sortField, sortDirection),
+    queryKey: ["booths", city, status, debouncedKeyword, page, pageSize, sortField, sortDirection, tagId],
+    queryFn: () => fetchBooths(city || undefined, status || undefined, debouncedKeyword || undefined, page, pageSize, sortField, sortDirection, tagId),
   });
 
   const { data: booths = [], total = 0, page: currentPage, pageSize: currentPageSize } = paginatedResult;
@@ -174,13 +192,16 @@ export function BoothListPage() {
   useEffect(() => {
     const cityParam = searchParams.get("city");
     const statusParam = searchParams.get("status");
+    const tagIdParam = searchParams.get("tagId");
     const keywordParam = searchParams.get("keyword");
     const pageParam = parsePageFromParams(searchParams);
     const pageSizeParam = parsePageSizeFromParams(searchParams);
     const sortFieldParam = parseSortFieldFromParams(searchParams);
     const sortDirectionParam = parseSortDirectionFromParams(searchParams);
+    const parsedTagId = tagIdParam && !Number.isNaN(Number(tagIdParam)) ? Number(tagIdParam) : undefined;
     if (cityParam !== city) setCity(cityParam || "");
     if (statusParam !== status) setStatus(statusParam || "");
+    if (parsedTagId !== tagId) setTagId(parsedTagId);
     if (keywordParam !== debouncedKeyword) {
       setDebouncedKeyword(keywordParam || "");
       setKeywordInput(keywordParam || "");
@@ -239,7 +260,7 @@ export function BoothListPage() {
   const handleExportCsv = async () => {
     setIsExporting(true);
     try {
-      await exportBoothsCsv(city || undefined, status || undefined, debouncedKeyword || undefined);
+      await exportBoothsCsv(city || undefined, status || undefined, debouncedKeyword || undefined, tagId);
     } finally {
       setIsExporting(false);
     }
@@ -249,7 +270,7 @@ export function BoothListPage() {
     if (currentPage > 1) {
       const newPage = currentPage - 1;
       setPage(newPage);
-      syncToUrl(city, status, debouncedKeyword, newPage, pageSize, sortField, sortDirection);
+      syncToUrl(city, status, debouncedKeyword, newPage, pageSize, sortField, sortDirection, tagId);
     }
   };
 
@@ -257,7 +278,7 @@ export function BoothListPage() {
     if (currentPage < totalPages) {
       const newPage = currentPage + 1;
       setPage(newPage);
-      syncToUrl(city, status, debouncedKeyword, newPage, pageSize, sortField, sortDirection);
+      syncToUrl(city, status, debouncedKeyword, newPage, pageSize, sortField, sortDirection, tagId);
     }
   };
 
@@ -355,6 +376,22 @@ export function BoothListPage() {
               <SelectItem value="all">全部状态</SelectItem>
               {(Object.keys(STATUS_LABELS) as BoothStatus[]).map((s) => (
                 <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="w-48">
+          <Select
+            value={tagId !== undefined ? String(tagId) : "all"}
+            onValueChange={handleTagChange}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="筛选标签" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部标签</SelectItem>
+              {allTags.map((t) => (
+                <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>

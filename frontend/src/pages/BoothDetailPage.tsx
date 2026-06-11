@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, MapPin, Pencil, Trash2, Plus, ClipboardList, User, Calendar, MessageSquare, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, MapPin, Pencil, Trash2, Plus, ClipboardList, User, Calendar, MessageSquare, CheckCircle2, XCircle, Tag as TagIcon, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { fetchBooth, updateBooth, deleteBooth, fetchInspections, createInspection, deleteInspection, updateInspection, checkFavorite } from "@/api/booths";
+import { fetchBooth, updateBooth, deleteBooth, fetchInspections, createInspection, deleteInspection, updateInspection, checkFavorite, fetchAllTags, setBoothTags } from "@/api/booths";
 import { BoothForm } from "@/components/BoothForm";
 import { Button } from "@/components/ui/button";
 import { FavoriteButton } from "@/components/FavoriteButton";
@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { STATUS_LABELS } from "@/types/booth";
-import type { InspectionRecordInput, InspectionRecord } from "@/types/booth";
+import type { Booth, InspectionRecordInput, InspectionRecord } from "@/types/booth";
 
 const inspectionSchema = z.object({
   inspector_name: z.string().min(1, "请输入巡检人姓名"),
@@ -58,6 +58,10 @@ export function BoothDetailPage() {
     open: false,
     target: "booth",
   });
+  const [editingTags, setEditingTags] = useState(false);
+  const [tagInput, setTagInput] = useState("");
+  const [selectedTagNames, setSelectedTagNames] = useState<string[]>([]);
+  const [tagError, setTagError] = useState("");
 
   const {
     register,
@@ -93,6 +97,54 @@ export function BoothDetailPage() {
     queryFn: () => checkFavorite(boothId),
     enabled: !Number.isNaN(boothId) && !!booth,
   });
+
+  const { data: allTags = [] } = useQuery({
+    queryKey: ["tags"],
+    queryFn: fetchAllTags,
+  });
+
+  const boothTags = booth?.tags ?? [];
+
+  function startEditTags() {
+    setSelectedTagNames(boothTags.map((t) => t.name));
+    setTagInput("");
+    setTagError("");
+    setEditingTags(true);
+  }
+
+  function cancelEditTags() {
+    setSelectedTagNames([]);
+    setTagInput("");
+    setTagError("");
+    setEditingTags(false);
+  }
+
+  function addTagName(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (trimmed.length > 20) {
+      setTagError("标签名不能超过20字");
+      return;
+    }
+    if (selectedTagNames.includes(trimmed)) {
+      setTagError("该标签已存在");
+      return;
+    }
+    setSelectedTagNames((prev) => [...prev, trimmed]);
+    setTagInput("");
+    setTagError("");
+  }
+
+  function removeTagName(name: string) {
+    setSelectedTagNames((prev) => prev.filter((n) => n !== name));
+  }
+
+  function handleTagInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addTagName(tagInput);
+    }
+  }
 
   function showToast(message: string) {
     const id = Date.now();
@@ -194,6 +246,28 @@ export function BoothDetailPage() {
       if (details) {
         setEditErrors(details);
         showErrorToast("更新失败：请检查字段内容");
+      } else {
+        showErrorToast("更新失败，请稍后重试");
+      }
+    },
+  });
+
+  const setBoothTagsMutation = useMutation({
+    mutationFn: (names: string[]) => setBoothTags(boothId, names),
+    onSuccess: (updatedTags) => {
+      queryClient.setQueryData<Booth>(["booth", boothId], (old) =>
+        old ? { ...old, tags: updatedTags } : old
+      );
+      queryClient.invalidateQueries({ queryKey: ["tags"] });
+      queryClient.invalidateQueries({ queryKey: ["booths"] });
+      cancelEditTags();
+      showToast("标签已更新");
+    },
+    onError: (error) => {
+      const details = extractFieldDetails(error);
+      if (details) {
+        const msgs = Object.values(details);
+        showErrorToast(msgs.length > 0 ? msgs[0] : "更新失败：请检查标签内容");
       } else {
         showErrorToast("更新失败，请稍后重试");
       }
@@ -407,6 +481,136 @@ export function BoothDetailPage() {
                       <p className="mt-1 text-muted-foreground italic">暂无备注</p>
                     )}
                   </div>
+                </div>
+                <div className="pt-3 border-t">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <TagIcon className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-medium">标签</span>
+                    </div>
+                    {!editingTags && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={startEditTags}
+                      >
+                        <Pencil className="h-3.5 w-3.5 mr-1" />
+                        编辑标签
+                      </Button>
+                    )}
+                  </div>
+                  {editingTags ? (
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap gap-2">
+                        {selectedTagNames.length === 0 ? (
+                          <span className="text-sm text-muted-foreground italic pl-6">暂无标签，输入下方添加</span>
+                        ) : (
+                          selectedTagNames.map((name) => (
+                            <span
+                              key={name}
+                              className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                            >
+                              {name}
+                              <button
+                                type="button"
+                                onClick={() => removeTagName(name)}
+                                className="rounded-full p-0.5 hover:bg-primary/20 transition-colors"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          ))
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="输入新标签名后回车添加，或选择下方已有标签（最多20字）"
+                            value={tagInput}
+                            onChange={(e) => {
+                              setTagInput(e.target.value);
+                              if (tagError) setTagError("");
+                            }}
+                            onKeyDown={handleTagInputKeyDown}
+                            maxLength={50}
+                            className="flex-1"
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => addTagName(tagInput)}
+                            disabled={!tagInput.trim()}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            添加
+                          </Button>
+                        </div>
+                        {tagError && (
+                          <p className="text-xs text-destructive">{tagError}</p>
+                        )}
+                        {allTags.length > 0 && (
+                          <div className="space-y-1.5">
+                            <p className="text-xs text-muted-foreground">已有标签（点击添加）：</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {allTags
+                                .filter((t) => !selectedTagNames.includes(t.name))
+                                .slice(0, 30)
+                                .map((t) => (
+                                  <button
+                                    key={t.id}
+                                    type="button"
+                                    onClick={() => addTagName(t.name)}
+                                    className="inline-flex items-center rounded-md border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                                  >
+                                    + {t.name}
+                                  </button>
+                                ))}
+                              {allTags.filter((t) => !selectedTagNames.includes(t.name)).length > 30 && (
+                                <span className="inline-flex items-center rounded-md px-2.5 py-1 text-xs text-muted-foreground/60">
+                                  还有 {allTags.filter((t) => !selectedTagNames.includes(t.name)).length - 30} 个...
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => setBoothTagsMutation.mutate(selectedTagNames)}
+                          disabled={setBoothTagsMutation.isPending}
+                        >
+                          {setBoothTagsMutation.isPending ? "保存中..." : "保存标签"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={cancelEditTags}
+                          disabled={setBoothTagsMutation.isPending}
+                        >
+                          取消
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2 pl-6">
+                      {boothTags.length === 0 ? (
+                        <span className="text-sm text-muted-foreground italic">暂无标签</span>
+                      ) : (
+                        boothTags.map((t) => (
+                          <span
+                            key={t.id}
+                            className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                          >
+                            {t.name}
+                          </span>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
                 {booth.photo_url && (
                   <img

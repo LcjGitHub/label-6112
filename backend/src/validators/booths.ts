@@ -1,4 +1,4 @@
-import { BoothInput, BoothStatus, InspectionRecordInput, InspectionRecordUpdateInput } from "../types";
+import { BoothInput, BoothStatus, BoothTagInput, InspectionRecordInput, InspectionRecordUpdateInput } from "../types";
 
 const VALID_STATUSES: BoothStatus[] = ["available", "damaged", "demolished"];
 
@@ -149,5 +149,37 @@ export function validateInspectionUpdateInput(
       remarks: remarksSanitized!,
     },
     errors: {},
+  };
+}
+
+export function validateBoothTagInput(
+  body: Record<string, unknown>
+): ValidationResult<BoothTagInput> {
+  const { tag_names } = body;
+  const errors: Record<string, string> = {};
+
+  if (!Array.isArray(tag_names)) {
+    errors.tag_names = "tag_names 必须是字符串数组";
+    return { input: null, errors };
+  }
+
+  const sanitizedNames: string[] = [];
+  for (let i = 0; i < tag_names.length; i++) {
+    const name = tag_names[i];
+    const result = validateTextField(name, { label: `标签${i + 1}`, maxLength: 20 });
+    if (result.error) {
+      errors[`tag_${i}`] = result.error;
+    } else if (result.sanitized !== null) {
+      sanitizedNames.push(result.sanitized);
+    }
+  }
+
+  if (Object.keys(errors).length > 0) {
+    return { input: null, errors };
+  }
+
+  return {
+    input: { tag_names: sanitizedNames },
+    errors,
   };
 }

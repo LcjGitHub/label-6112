@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { Booth, BoothInput, BoothSortField, BoothStatistics, Favorite, FavoriteBooth, InspectionRecord, InspectionRecordInput, InspectionRecordUpdateInput, OperationLog, PaginatedResult, SortDirection } from "@/types/booth";
+import type { Booth, BoothInput, BoothSortField, BoothStatistics, Favorite, FavoriteBooth, InspectionRecord, InspectionRecordInput, InspectionRecordUpdateInput, OperationLog, PaginatedResult, SortDirection, Tag } from "@/types/booth";
 import { getSessionKey } from "@/lib/session";
 
 const api = axios.create({ baseURL: "/api" });
@@ -19,7 +19,8 @@ export async function fetchBooths(
   page: number = 1,
   pageSize: number = 10,
   sortField?: BoothSortField,
-  sortDirection: SortDirection = "asc"
+  sortDirection: SortDirection = "asc",
+  tagId?: number
 ): Promise<PaginatedResult<Booth>> {
   const params: Record<string, string | number> = {};
   if (city) params.city = city;
@@ -30,6 +31,7 @@ export async function fetchBooths(
   params.pageSize = pageSize;
   if (sortField) params.sortField = sortField;
   params.sortDirection = sortDirection;
+  if (tagId !== undefined) params.tagId = tagId;
   const { data } = await api.get<PaginatedResult<Booth>>("/booths", { params });
   return data;
 }
@@ -92,13 +94,15 @@ export async function updateInspection(
 export async function exportBoothsCsv(
   city?: string,
   status?: string,
-  keyword?: string
+  keyword?: string,
+  tagId?: number
 ): Promise<void> {
-  const params: Record<string, string> = {};
+  const params: Record<string, string | number> = {};
   if (city) params.city = city;
   if (status) params.status = status;
   const trimmedKeyword = keyword?.trim();
   if (trimmedKeyword) params.keyword = trimmedKeyword;
+  if (tagId !== undefined) params.tagId = tagId;
 
   const { data } = await api.get<Blob>("/booths/export", {
     params,
@@ -162,4 +166,19 @@ export async function toggleFavorite(boothId: number, isCurrentlyFavorited: bool
     await addFavorite(boothId);
     return true;
   }
+}
+
+export async function fetchAllTags(): Promise<Tag[]> {
+  const { data } = await api.get<Tag[]>("/booths/tags/list");
+  return data;
+}
+
+export async function fetchBoothTags(boothId: number): Promise<Tag[]> {
+  const { data } = await api.get<Tag[]>(`/booths/${boothId}/tags`);
+  return data;
+}
+
+export async function setBoothTags(boothId: number, tagNames: string[]): Promise<Tag[]> {
+  const { data } = await api.put<Tag[]>(`/booths/${boothId}/tags`, { tag_names: tagNames });
+  return data;
 }

@@ -17,6 +17,7 @@ import {
   OperationType,
   PaginatedResult,
   SortDirection,
+  Tag,
 } from "./types";
 
 const SCHEMA_SQL = `
@@ -57,6 +58,20 @@ const SCHEMA_SQL = `
     created_at TEXT NOT NULL,
     FOREIGN KEY (booth_id) REFERENCES booths(id) ON DELETE CASCADE,
     UNIQUE(session_key, booth_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS booth_tags (
+    booth_id INTEGER NOT NULL,
+    tag_id INTEGER NOT NULL,
+    PRIMARY KEY (booth_id, tag_id),
+    FOREIGN KEY (booth_id) REFERENCES booths(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
   )
 `;
 
@@ -98,10 +113,18 @@ export function setDatabase(dbInstance: Database.Database): void {
 export function getBoothsForExport(
   city?: string,
   status?: string,
-  keyword?: string
+  keyword?: string,
+  tagId?: number
 ): Booth[] {
   const conditions: string[] = [];
   const params: (string | number)[] = [];
+  let joinClause = "";
+
+  if (tagId !== undefined) {
+    joinClause = " INNER JOIN booth_tags bt ON b.id = bt.booth_id";
+    conditions.push("bt.tag_id = ?");
+    params.push(tagId);
+  }
 
   if (city) {
     conditions.push("city = ?");
@@ -119,7 +142,7 @@ export function getBoothsForExport(
   }
 
   const whereClause = conditions.length > 0 ? " WHERE " + conditions.join(" AND ") : "";
-  const dataSql = "SELECT * FROM booths" + whereClause + " ORDER BY id ASC";
+  const dataSql = "SELECT DISTINCT b.* FROM booths b" + joinClause + whereClause + " ORDER BY b.id ASC";
   return db.prepare(dataSql).all(...params) as Booth[];
 }
 
@@ -130,10 +153,18 @@ export function getAllBooths(
   page: number = 1,
   pageSize: number = 10,
   sortField?: BoothSortField,
-  sortDirection: SortDirection = "asc"
+  sortDirection: SortDirection = "asc",
+  tagId?: number
 ): PaginatedResult<Booth> {
   const conditions: string[] = [];
   const params: (string | number)[] = [];
+  let joinClause = "";
+
+  if (tagId !== undefined) {
+    joinClause = " INNER JOIN booth_tags bt ON b.id = bt.booth_id";
+    conditions.push("bt.tag_id = ?");
+    params.push(tagId);
+  }
 
   if (city) {
     conditions.push("city = ?");
@@ -152,7 +183,7 @@ export function getAllBooths(
 
   const whereClause = conditions.length > 0 ? " WHERE " + conditions.join(" AND ") : "";
 
-  const countSql = "SELECT COUNT(*) as cnt FROM booths" + whereClause;
+  const countSql = "SELECT COUNT(DISTINCT b.id) as cnt FROM booths b" + joinClause + whereClause;
   const total = (db.prepare(countSql).get(...params) as { cnt: number }).cnt;
 
   const VALID_PAGE_SIZES = [10, 20, 50];
@@ -169,12 +200,12 @@ export function getAllBooths(
   const validSortField = VALID_SORT_FIELDS.includes(sortField as BoothSortField) ? sortField : undefined;
   const validSortDirection = VALID_SORT_DIRECTIONS.includes(sortDirection as SortDirection) ? sortDirection : "asc";
 
-  let orderByClause = " ORDER BY id ASC";
+  let orderByClause = " ORDER BY b.id ASC";
   if (validSortField) {
-    orderByClause = ` ORDER BY ${validSortField} ${validSortDirection.toUpperCase()}, id ASC`;
+    orderByClause = ` ORDER BY b.${validSortField} ${validSortDirection.toUpperCase()}, b.id ASC`;
   }
 
-  const dataSql = "SELECT * FROM booths" + whereClause + orderByClause + " LIMIT ? OFFSET ?";
+  const dataSql = "SELECT DISTINCT b.* FROM booths b" + joinClause + whereClause + orderByClause + " LIMIT ? OFFSET ?";
   const dataParams = [...params, validPageSize, offset];
   const data = db.prepare(dataSql).all(...dataParams) as Booth[];
 
@@ -196,6 +227,7 @@ export function getBoothById(id: number): Booth | undefined {
   ).get(id) as Booth | undefined;
   if (!booth) return undefined;
   booth.latest_inspection = getLatestInspectionByBoothId(id);
+  booth.tags = getTagsByBoothId(id);
   return booth;
 }
 
@@ -569,4 +601,75 @@ export function removeFavorite(sessionKey: string, boothId: number): boolean {
     .prepare("DELETE FROM favorites WHERE session_key = ? AND booth_id = ?")
     .run(sessionKey, boothId);
   return result.changes > 0;
+}
+
+export function getAllTags(): Tag[] {
+  return db
+    .prepare("SELECT * FROM tags ORDER BY name ASC")
+    .all() as Tag[];
+}
+
+export function getTagsByBoothId(boothId: number): Tag[] {
+  return db
+    .prepare(
+      `SELECT t.id, t.name
+       FROM tags t
+       INNER JOIN booth_tags bt ON t.id = bt.tag_id
+       WHERE bt.booth_id = ?
+       ORDER BY t.name ASC`
+    )
+    .all(boothId) as Tag[];
+}
+
+export function getOrCreateTag(name: string): Tag {
+  const trimmed = name.trim();
+  const existing = db
+    .prepare("SELECT * FROM tags WHERE name = ?")
+    .get(trimmed) as Tag | undefined;
+  if (existing) return existing;
+
+  const now = new Date().toISOString();
+  const result = db
+    .prepare("INSERT INTO tags (name, created_at) VALUES (?, ?)")
+    .run(trimmed, now);
+  return db
+    .prepare("SELECT * FROM tags WHERE id = ?")
+    .get(result.lastInsertRowid as number) as Tag;
+}
+
+export function setBoothTags(boothId: number, tagNames: string[]): Tag[] {
+  const uniqueNames = Array.from(new Set(tagNames.map((n) => n.trim()).filter((n) => n.length > 0)));
+
+  const tags: Tag[] = [];
+  for (const name of uniqueNames) {
+    tags.push(getOrCreateTag(name));
+  }
+
+  const deleteStmt = db.prepare("DELETE FROM booth_tags WHERE booth_id = ?");
+  const insertStmt = db.prepare("INSERT INTO booth_tags (booth_id, tag_id) VALUES (?, ?)");
+
+  const transaction = db.transaction(() => {
+    deleteStmt.run(boothId);
+    for (const tag of tags) {
+      insertStmt.run(boothId, tag.id);
+    }
+  });
+
+  transaction();
+
+  return tags;
+}
+
+export function validateTagName(name: unknown): { sanitized: string | null; error?: string } {
+  if (typeof name !== "string") {
+    return { sanitized: null, error: "标签名必须是字符串" };
+  }
+  const trimmed = name.trim();
+  if (trimmed.length === 0) {
+    return { sanitized: null };
+  }
+  if (trimmed.length > 20) {
+    return { sanitized: null, error: "标签名不能超过20字" };
+  }
+  return { sanitized: trimmed };
 }

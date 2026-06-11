@@ -3,6 +3,15 @@ export type BoothStatus = "available" | "damaged" | "demolished";
 export type BoothSortField = "discovery_date" | "city";
 export type SortDirection = "asc" | "desc";
 
+export interface Tag {
+  id: number;
+  name: string;
+}
+
+export interface BoothTagInput {
+  tag_names: string[];
+}
+
 export interface LatestInspection {
   inspector_name: string;
   inspection_date: string;
@@ -21,6 +30,7 @@ export interface Booth {
   remark: string | null;
   inspection_count?: number;
   latest_inspection?: LatestInspection | null;
+  tags?: Tag[];
 }
 
 export interface BoothInput {
