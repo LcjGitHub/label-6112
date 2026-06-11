@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { MapPin, Plus, Trash2, BarChart3, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { fetchBooths, fetchCities, createBooth, deleteBooth } from "@/api/booths";
 import { BoothForm } from "@/components/BoothForm";
@@ -30,7 +30,8 @@ const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 
 export function BoothListPage() {
   const queryClient = useQueryClient();
-  const [city, setCity] = useState<string>("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [city, setCity] = useState<string>(searchParams.get("city") || "");
   const [status, setStatus] = useState<string>("");
   const [keywordInput, setKeywordInput] = useState<string>("");
   const [debouncedKeyword, setDebouncedKeyword] = useState<string>("");
@@ -51,8 +52,14 @@ export function BoothListPage() {
   }, [keywordInput]);
 
   const handleCityChange = (v: string) => {
-    setCity(v === "all" ? "" : v);
+    const newCity = v === "all" ? "" : v;
+    setCity(newCity);
     setPage(1);
+    if (newCity) {
+      setSearchParams({ city: newCity });
+    } else {
+      setSearchParams({});
+    }
   };
 
   const handleStatusChange = (v: string) => {
@@ -78,6 +85,14 @@ export function BoothListPage() {
 
   const { data: booths = [], total = 0, page: currentPage, pageSize: currentPageSize } = paginatedResult;
   const totalPages = Math.max(1, Math.ceil(total / currentPageSize));
+
+  useEffect(() => {
+    const cityParam = searchParams.get("city");
+    if (cityParam !== null && cityParam !== city) {
+      setCity(cityParam);
+      setPage(1);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!isLoading && page > 1 && currentPage < page) {

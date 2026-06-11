@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { BarChart3, ArrowLeft, MapPin, Phone } from "lucide-react";
 import { fetchStatistics } from "@/api/booths";
 import { Button } from "@/components/ui/button";
@@ -15,11 +15,17 @@ const STATUS_ICONS: Record<BoothStatus, string> = {
 };
 
 export function StatisticsPage() {
+  const navigate = useNavigate();
   const { data: statistics, isLoading, isError } = useQuery({
     queryKey: ["statistics"],
     queryFn: fetchStatistics,
-    staleTime: 60 * 1000,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
+
+  const handleCityClick = (city: string) => {
+    navigate(`/?city=${encodeURIComponent(city)}`);
+  };
 
   useEffect(() => {
     document.title = "数据统计概览";
@@ -98,7 +104,8 @@ export function StatisticsPage() {
                   {Object.entries(statistics.byCity).map(([city, count]) => (
                     <div
                       key={city}
-                      className="flex items-center gap-3 rounded-lg border p-4"
+                      className="flex items-center gap-3 rounded-lg border p-4 cursor-pointer hover:border-primary hover:shadow-sm transition-all"
+                      onClick={() => handleCityClick(city)}
                     >
                       <MapPin className="h-6 w-6 text-primary" />
                       <div>
