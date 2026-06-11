@@ -1,7 +1,14 @@
 import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
-import { Booth, BoothInput, BoothStatistics, BoothStatus } from "./types";
+import {
+  Booth,
+  BoothInput,
+  BoothStatistics,
+  BoothStatus,
+  InspectionRecord,
+  InspectionRecordInput,
+} from "./types";
 
 const dataDir = path.resolve(__dirname, "../../data");
 if (!fs.existsSync(dataDir)) {
@@ -21,6 +28,15 @@ db.exec(`
     status TEXT NOT NULL CHECK(status IN ('available', 'damaged', 'demolished')),
     discovery_date TEXT NOT NULL,
     photo_url TEXT NOT NULL DEFAULT ''
+  );
+
+  CREATE TABLE IF NOT EXISTS inspection_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    booth_id INTEGER NOT NULL,
+    inspector_name TEXT NOT NULL,
+    inspection_date TEXT NOT NULL,
+    remarks TEXT NOT NULL DEFAULT '',
+    FOREIGN KEY (booth_id) REFERENCES booths(id) ON DELETE CASCADE
   )
 `);
 
@@ -79,6 +95,28 @@ export function deleteBooth(id: number): boolean {
   return result.changes > 0;
 }
 
+export function getInspectionsByBoothId(boothId: number): InspectionRecord[] {
+  return db
+    .prepare("SELECT * FROM inspection_records WHERE booth_id = ? ORDER BY inspection_date DESC, id DESC")
+    .all(boothId) as InspectionRecord[];
+}
+
+export function createInspectionRecord(input: InspectionRecordInput): InspectionRecord {
+  const stmt = db.prepare(
+    `INSERT INTO inspection_records (booth_id, inspector_name, inspection_date, remarks)
+     VALUES (@booth_id, @inspector_name, @inspection_date, @remarks)`
+  );
+  const result = stmt.run(input);
+  return db
+    .prepare("SELECT * FROM inspection_records WHERE id = ?")
+    .get(result.lastInsertRowid as number) as InspectionRecord;
+}
+
+export function deleteInspectionRecord(id: number): boolean {
+  const result = db.prepare("DELETE FROM inspection_records WHERE id = ?").run(id);
+  return result.changes > 0;
+}
+
 export function getCities(): string[] {
   const rows = db.prepare("SELECT DISTINCT city FROM booths ORDER BY city").all() as { city: string }[];
   return rows.map((r) => r.city);
@@ -107,68 +145,110 @@ export function getStatistics(): BoothStatistics {
 }
 
 export function seedIfEmpty(): void {
-  const count = (db.prepare("SELECT COUNT(*) as cnt FROM booths").get() as { cnt: number }).cnt;
-  if (count > 0) return;
+  const boothCount = (db.prepare("SELECT COUNT(*) as cnt FROM booths").get() as { cnt: number }).cnt;
+  const inspectionCount = (db.prepare("SELECT COUNT(*) as cnt FROM inspection_records").get() as { cnt: number }).cnt;
 
-  const seedData: BoothInput[] = [
-    {
-      city: "北京",
-      address: "东城区王府井大街88号",
-      longitude: 116.4174,
-      latitude: 39.9092,
-      status: "available",
-      discovery_date: "2024-03-15",
-      photo_url: "https://picsum.photos/seed/booth1/400/300",
-    },
-    {
-      city: "上海",
-      address: "黄浦区南京东路100号",
-      longitude: 121.4844,
-      latitude: 31.2359,
-      status: "damaged",
-      discovery_date: "2024-05-20",
-      photo_url: "https://picsum.photos/seed/booth2/400/300",
-    },
-    {
-      city: "广州",
-      address: "越秀区北京路168号",
-      longitude: 113.2644,
-      latitude: 23.1291,
-      status: "available",
-      discovery_date: "2024-06-08",
-      photo_url: "https://picsum.photos/seed/booth3/400/300",
-    },
-    {
-      city: "深圳",
-      address: "福田区深南大道5001号",
-      longitude: 114.0579,
-      latitude: 22.5431,
-      status: "demolished",
-      discovery_date: "2023-11-30",
-      photo_url: "https://picsum.photos/seed/booth4/400/300",
-    },
-    {
-      city: "北京",
-      address: "西城区西单北大街120号",
-      longitude: 116.3735,
-      latitude: 39.9133,
-      status: "available",
-      discovery_date: "2024-08-12",
-      photo_url: "https://picsum.photos/seed/booth5/400/300",
-    },
-  ];
+  if (boothCount === 0) {
+    const seedData: BoothInput[] = [
+      {
+        city: "北京",
+        address: "东城区王府井大街88号",
+        longitude: 116.4174,
+        latitude: 39.9092,
+        status: "available",
+        discovery_date: "2024-03-15",
+        photo_url: "https://picsum.photos/seed/booth1/400/300",
+      },
+      {
+        city: "上海",
+        address: "黄浦区南京东路100号",
+        longitude: 121.4844,
+        latitude: 31.2359,
+        status: "damaged",
+        discovery_date: "2024-05-20",
+        photo_url: "https://picsum.photos/seed/booth2/400/300",
+      },
+      {
+        city: "广州",
+        address: "越秀区北京路168号",
+        longitude: 113.2644,
+        latitude: 23.1291,
+        status: "available",
+        discovery_date: "2024-06-08",
+        photo_url: "https://picsum.photos/seed/booth3/400/300",
+      },
+      {
+        city: "深圳",
+        address: "福田区深南大道5001号",
+        longitude: 114.0579,
+        latitude: 22.5431,
+        status: "demolished",
+        discovery_date: "2023-11-30",
+        photo_url: "https://picsum.photos/seed/booth4/400/300",
+      },
+      {
+        city: "北京",
+        address: "西城区西单北大街120号",
+        longitude: 116.3735,
+        latitude: 39.9133,
+        status: "available",
+        discovery_date: "2024-08-12",
+        photo_url: "https://picsum.photos/seed/booth5/400/300",
+      },
+    ];
 
-  const insert = db.prepare(
-    `INSERT INTO booths (city, address, longitude, latitude, status, discovery_date, photo_url)
-     VALUES (@city, @address, @longitude, @latitude, @status, @discovery_date, @photo_url)`
-  );
+    const insert = db.prepare(
+      `INSERT INTO booths (city, address, longitude, latitude, status, discovery_date, photo_url)
+       VALUES (@city, @address, @longitude, @latitude, @status, @discovery_date, @photo_url)`
+    );
 
-  const insertMany = db.transaction((items: BoothInput[]) => {
-    for (const item of items) {
-      insert.run(item);
-    }
-  });
+    const insertMany = db.transaction((items: BoothInput[]) => {
+      for (const item of items) {
+        insert.run(item);
+      }
+    });
 
-  insertMany(seedData);
-  console.log("Seeded 5 booth records.");
+    insertMany(seedData);
+    console.log("Seeded 5 booth records.");
+  }
+
+  if (inspectionCount === 0) {
+    const boothIds = (db.prepare("SELECT id FROM booths ORDER BY id ASC").all() as { id: number }[]).map((r) => r.id);
+    const inspectors = ["张三", "李四", "王五", "赵六", "钱七", "孙八"];
+    const remarksPool = [
+      "设备运行正常，外观整洁",
+      "发现玻璃轻微破损，已记录待维修",
+      "电话功能测试通过",
+      "内部卫生情况良好",
+      "外部有少量涂鸦，需清理",
+      "门锁略有松动，已紧固",
+      "指示灯全部正常工作",
+    ];
+
+    const insertInsp = db.prepare(
+      `INSERT INTO inspection_records (booth_id, inspector_name, inspection_date, remarks)
+       VALUES (@booth_id, @inspector_name, @inspection_date, @remarks)`
+    );
+
+    const seedInspections = db.transaction((ids: number[]) => {
+      for (let i = 0; i < ids.length; i++) {
+        const boothId = ids[i];
+        const count = (i % 2 === 0 ? 2 : 1);
+        for (let j = 0; j < count; j++) {
+          const date = new Date(2024, 8 + j, 10 + i * 3 + j * 5);
+          const dateStr = date.toISOString().slice(0, 10);
+          insertInsp.run({
+            booth_id: boothId,
+            inspector_name: inspectors[(i + j) % inspectors.length],
+            inspection_date: dateStr,
+            remarks: remarksPool[(i * 2 + j) % remarksPool.length],
+          });
+        }
+      }
+    });
+
+    seedInspections(boothIds);
+    const seeded = (db.prepare("SELECT COUNT(*) as cnt FROM inspection_records").get() as { cnt: number }).cnt;
+    console.log(`Seeded ${seeded} inspection records.`);
+  }
 }

@@ -26,3 +26,18 @@ export interface BoothStatistics {
   byStatus: Record<BoothStatus, number>;
   byCity: Record<string, number>;
 }
+
+export interface InspectionRecord {
+  id: number;
+  booth_id: number;
+  inspector_name: string;
+  inspection_date: string;
+  remarks: string;
+}
+
+export interface InspectionRecordInput {
+  booth_id: number;
+  inspector_name: string;
+  inspection_date: string;
+  remarks: string;
+}

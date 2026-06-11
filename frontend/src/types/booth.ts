@@ -32,3 +32,17 @@ export const STATUS_LABELS: Record<BoothStatus, string> = {
   damaged: "损坏",
   demolished: "已拆",
 };
+
+export interface InspectionRecord {
+  id: number;
+  booth_id: number;
+  inspector_name: string;
+  inspection_date: string;
+  remarks: string;
+}
+
+export interface InspectionRecordInput {
+  inspector_name: string;
+  inspection_date: string;
+  remarks: string;
+}

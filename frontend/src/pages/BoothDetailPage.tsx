@@ -1,12 +1,26 @@
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, MapPin, Pencil, Trash2 } from "lucide-react";
-import { fetchBooth, updateBooth, deleteBooth } from "@/api/booths";
+import { ArrowLeft, MapPin, Pencil, Trash2, Plus, ClipboardList, User, Calendar, MessageSquare } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { fetchBooth, updateBooth, deleteBooth, fetchInspections, createInspection, deleteInspection } from "@/api/booths";
 import { BoothForm } from "@/components/BoothForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { STATUS_LABELS } from "@/types/booth";
+import type { InspectionRecordInput } from "@/types/booth";
+
+const inspectionSchema = z.object({
+  inspector_name: z.string().min(1, "请输入巡检人姓名"),
+  inspection_date: z.string().min(1, "请选择巡检日期"),
+  remarks: z.string().max(500, "备注不能超过500字"),
+});
+
+type InspectionFormValues = z.infer<typeof inspectionSchema>;
 
 export function BoothDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -15,10 +29,33 @@ export function BoothDetailPage() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
 
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<InspectionFormValues>({
+    resolver: zodResolver(inspectionSchema),
+    defaultValues: {
+      inspector_name: "",
+      inspection_date: new Date().toISOString().slice(0, 10),
+      remarks: "",
+    },
+  });
+
   const { data: booth, isLoading, isError } = useQuery({
     queryKey: ["booth", boothId],
     queryFn: () => fetchBooth(boothId),
     enabled: !Number.isNaN(boothId),
+  });
+
+  const {
+    data: inspections = [],
+    isLoading: inspectionsLoading,
+  } = useQuery({
+    queryKey: ["inspections", boothId],
+    queryFn: () => fetchInspections(boothId),
+    enabled: !Number.isNaN(boothId) && !!booth,
   });
 
   const updateMutation = useMutation({
@@ -39,6 +76,25 @@ export function BoothDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["cities"] });
       queryClient.invalidateQueries({ queryKey: ["statistics"] });
       navigate("/");
+    },
+  });
+
+  const createInspectionMutation = useMutation({
+    mutationFn: (values: InspectionRecordInput) => createInspection(boothId, values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inspections", boothId] });
+      reset({
+        inspector_name: "",
+        inspection_date: new Date().toISOString().slice(0, 10),
+        remarks: "",
+      });
+    },
+  });
+
+  const deleteInspectionMutation = useMutation({
+    mutationFn: (recordId: number) => deleteInspection(boothId, recordId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inspections", boothId] });
     },
   });
 
@@ -145,6 +201,141 @@ export function BoothDetailPage() {
               <div className="flex h-48 items-center justify-center rounded-md border border-dashed bg-muted/30 text-muted-foreground">
                 经度 {booth.longitude}，纬度 {booth.latitude}
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <ClipboardList className="h-5 w-5 text-primary" />
+                新增巡检记录
+              </CardTitle>
+              <CardDescription>填写以下信息添加一条新的巡检记录</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form
+                onSubmit={handleSubmit((values) => createInspectionMutation.mutate(values))}
+                className="space-y-4"
+              >
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="inspector_name">
+                      <User className="h-4 w-4 inline mr-1" />
+                      巡检人姓名 <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="inspector_name"
+                      placeholder="请输入巡检人姓名"
+                      {...register("inspector_name")}
+                    />
+                    {errors.inspector_name && (
+                      <p className="text-sm text-destructive">{errors.inspector_name.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="inspection_date">
+                      <Calendar className="h-4 w-4 inline mr-1" />
+                      巡检日期 <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="inspection_date"
+                      type="date"
+                      {...register("inspection_date")}
+                    />
+                    {errors.inspection_date && (
+                      <p className="text-sm text-destructive">{errors.inspection_date.message}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="remarks">
+                    <MessageSquare className="h-4 w-4 inline mr-1" />
+                    备注说明
+                  </Label>
+                  <textarea
+                    id="remarks"
+                    rows={3}
+                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                    placeholder="请输入巡检备注（选填，最多500字）"
+                    {...register("remarks")}
+                  />
+                  {errors.remarks && (
+                    <p className="text-sm text-destructive">{errors.remarks.message}</p>
+                  )}
+                </div>
+                <Button
+                  type="submit"
+                  disabled={createInspectionMutation.isPending}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  {createInspectionMutation.isPending ? "提交中..." : "提交巡检记录"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <ClipboardList className="h-5 w-5 text-primary" />
+                巡检记录列表
+                <span className="ml-auto text-sm font-normal text-muted-foreground">
+                  共 {inspections.length} 条
+                </span>
+              </CardTitle>
+              <CardDescription>该电话亭的历史巡检记录</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {inspectionsLoading ? (
+                <p className="text-sm text-muted-foreground py-4">加载巡检记录中...</p>
+              ) : inspections.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <ClipboardList className="h-12 w-12 mb-3 opacity-30" />
+                  <p className="text-sm">暂无巡检记录</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {inspections.map((record) => (
+                    <div
+                      key={record.id}
+                      className="p-4 rounded-lg border bg-card hover:bg-accent/30 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="flex items-center gap-1">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{record.inspector_name}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">{record.inspection_date}</span>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          disabled={deleteInspectionMutation.isPending}
+                          onClick={() => {
+                            if (confirm("确认删除该巡检记录？")) {
+                              deleteInspectionMutation.mutate(record.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      {record.remarks ? (
+                        <div className="mt-2 pt-2 border-t">
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                            {record.remarks}
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

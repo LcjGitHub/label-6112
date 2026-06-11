@@ -7,8 +7,11 @@ import {
   deleteBooth,
   getCities,
   getStatistics,
+  getInspectionsByBoothId,
+  createInspectionRecord,
+  deleteInspectionRecord,
 } from "../db";
-import { BoothInput, BoothStatus } from "../types";
+import { BoothInput, BoothStatus, InspectionRecordInput } from "../types";
 
 const router = Router();
 
@@ -35,6 +38,27 @@ function validateInput(body: Record<string, unknown>): BoothInput | null {
     status: status as BoothStatus,
     discovery_date,
     photo_url: typeof photo_url === "string" ? photo_url : "",
+  };
+}
+
+function validateInspectionInput(
+  body: Record<string, unknown>,
+  boothId: number
+): InspectionRecordInput | null {
+  const { inspector_name, inspection_date, remarks } = body;
+  if (
+    typeof inspector_name !== "string" ||
+    inspector_name.trim().length === 0 ||
+    typeof inspection_date !== "string" ||
+    inspection_date.trim().length === 0
+  ) {
+    return null;
+  }
+  return {
+    booth_id: boothId,
+    inspector_name: inspector_name.trim(),
+    inspection_date: inspection_date.trim(),
+    remarks: typeof remarks === "string" ? remarks : "",
   };
 }
 
@@ -105,6 +129,61 @@ router.delete("/:id", (req: Request, res: Response) => {
   const deleted = deleteBooth(id);
   if (!deleted) {
     res.status(404).json({ error: "Booth not found" });
+    return;
+  }
+  res.status(204).send();
+});
+
+router.get("/:id/inspections", (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const booth = getBoothById(id);
+  if (!booth) {
+    res.status(404).json({ error: "Booth not found" });
+    return;
+  }
+  const inspections = getInspectionsByBoothId(id);
+  res.json(inspections);
+});
+
+router.post("/:id/inspections", (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (Number.isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const booth = getBoothById(id);
+  if (!booth) {
+    res.status(404).json({ error: "Booth not found" });
+    return;
+  }
+  const input = validateInspectionInput(req.body, id);
+  if (!input) {
+    res.status(400).json({ error: "Invalid input: inspector_name and inspection_date are required" });
+    return;
+  }
+  const record = createInspectionRecord(input);
+  res.status(201).json(record);
+});
+
+router.delete("/:id/inspections/:recordId", (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const recordId = Number(req.params.recordId);
+  if (Number.isNaN(id) || Number.isNaN(recordId)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const booth = getBoothById(id);
+  if (!booth) {
+    res.status(404).json({ error: "Booth not found" });
+    return;
+  }
+  const deleted = deleteInspectionRecord(recordId);
+  if (!deleted) {
+    res.status(404).json({ error: "Inspection record not found" });
     return;
   }
   res.status(204).send();
