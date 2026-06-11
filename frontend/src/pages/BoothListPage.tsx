@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
-import { MapPin, Plus, Trash2, BarChart3, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { MapPin, Plus, Trash2, BarChart3, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
 import { fetchBooths, fetchCities, createBooth, deleteBooth } from "@/api/booths";
 import { BoothForm } from "@/components/BoothForm";
 import { Button } from "@/components/ui/button";
@@ -29,11 +29,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { Booth, BoothStatus, PaginatedResult } from "@/types/booth";
+import type { Booth, BoothSortField, BoothStatus, PaginatedResult, SortDirection } from "@/types/booth";
 import { STATUS_LABELS } from "@/types/booth";
 
 const DEFAULT_PAGE_SIZE = 10;
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
+const VALID_SORT_FIELDS: BoothSortField[] = ["discovery_date", "city"];
+const VALID_SORT_DIRECTIONS: SortDirection[] = ["asc", "desc"];
 
 function parsePageSizeFromParams(params: URLSearchParams): number {
   const raw = Number(params.get("pageSize"));
@@ -43,6 +45,16 @@ function parsePageSizeFromParams(params: URLSearchParams): number {
 function parsePageFromParams(params: URLSearchParams): number {
   const raw = Number(params.get("page"));
   return Number.isInteger(raw) && raw >= 1 ? raw : 1;
+}
+
+function parseSortFieldFromParams(params: URLSearchParams): BoothSortField | undefined {
+  const raw = params.get("sortField");
+  return VALID_SORT_FIELDS.includes(raw as BoothSortField) ? (raw as BoothSortField) : undefined;
+}
+
+function parseSortDirectionFromParams(params: URLSearchParams): SortDirection {
+  const raw = params.get("sortDirection");
+  return VALID_SORT_DIRECTIONS.includes(raw as SortDirection) ? (raw as SortDirection) : "asc";
 }
 
 export function BoothListPage() {
@@ -56,6 +68,8 @@ export function BoothListPage() {
   const [showForm, setShowForm] = useState(false);
   const [page, setPage] = useState<number>(parsePageFromParams(searchParams));
   const [pageSize, setPageSize] = useState<number>(parsePageSizeFromParams(searchParams));
+  const [sortField, setSortField] = useState<BoothSortField | undefined>(parseSortFieldFromParams(searchParams));
+  const [sortDirection, setSortDirection] = useState<SortDirection>(parseSortDirectionFromParams(searchParams));
   const [createServerErrors, setCreateServerErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -72,7 +86,7 @@ export function BoothListPage() {
       const trimmed = value.trim();
       setDebouncedKeyword(trimmed);
       setPage(1);
-      syncToUrl(city, status, trimmed, 1, pageSize);
+      syncToUrl(city, status, trimmed, 1, pageSize, sortField, sortDirection);
     }, 300);
   };
 
@@ -81,7 +95,9 @@ export function BoothListPage() {
     statusValue: string,
     keywordValue: string,
     pageValue: number,
-    pageSizeValue: number
+    pageSizeValue: number,
+    sortFieldValue: BoothSortField | undefined,
+    sortDirectionValue: SortDirection
   ) => {
     const params: Record<string, string> = {};
     if (cityValue) params.city = cityValue;
@@ -89,6 +105,8 @@ export function BoothListPage() {
     if (keywordValue) params.keyword = keywordValue;
     if (pageValue > 1) params.page = String(pageValue);
     if (pageSizeValue !== DEFAULT_PAGE_SIZE) params.pageSize = String(pageSizeValue);
+    if (sortFieldValue) params.sortField = sortFieldValue;
+    if (sortDirectionValue !== "asc" || sortFieldValue) params.sortDirection = sortDirectionValue;
     setSearchParams(params);
   };
 
@@ -96,21 +114,34 @@ export function BoothListPage() {
     const newCity = v === "all" ? "" : v;
     setCity(newCity);
     setPage(1);
-    syncToUrl(newCity, status, debouncedKeyword, 1, pageSize);
+    syncToUrl(newCity, status, debouncedKeyword, 1, pageSize, sortField, sortDirection);
   };
 
   const handleStatusChange = (v: string) => {
     const newStatus = v === "all" ? "" : v;
     setStatus(newStatus);
     setPage(1);
-    syncToUrl(city, newStatus, debouncedKeyword, 1, pageSize);
+    syncToUrl(city, newStatus, debouncedKeyword, 1, pageSize, sortField, sortDirection);
   };
 
   const handlePageSizeChange = (v: string) => {
     const newPageSize = Number(v);
     setPageSize(newPageSize);
     setPage(1);
-    syncToUrl(city, status, debouncedKeyword, 1, newPageSize);
+    syncToUrl(city, status, debouncedKeyword, 1, newPageSize, sortField, sortDirection);
+  };
+
+  const handleSort = (field: BoothSortField) => {
+    let newDirection: SortDirection = "asc";
+    if (sortField === field) {
+      newDirection = sortDirection === "asc" ? "desc" : "asc";
+    }
+    const newSortField = sortField === field && sortDirection === "desc" ? undefined : field;
+    const finalDirection = newSortField ? newDirection : "asc";
+    setSortField(newSortField);
+    setSortDirection(finalDirection);
+    setPage(1);
+    syncToUrl(city, status, debouncedKeyword, 1, pageSize, newSortField, finalDirection);
   };
 
   const { data: cities = [] } = useQuery({
@@ -120,8 +151,8 @@ export function BoothListPage() {
 
   const emptyResult: PaginatedResult<Booth> = { data: [], total: 0, page: 1, pageSize: DEFAULT_PAGE_SIZE };
   const { data: paginatedResult = emptyResult, isLoading, isError, isFetching } = useQuery({
-    queryKey: ["booths", city, status, debouncedKeyword, page, pageSize],
-    queryFn: () => fetchBooths(city || undefined, status || undefined, debouncedKeyword || undefined, page, pageSize),
+    queryKey: ["booths", city, status, debouncedKeyword, page, pageSize, sortField, sortDirection],
+    queryFn: () => fetchBooths(city || undefined, status || undefined, debouncedKeyword || undefined, page, pageSize, sortField, sortDirection),
   });
 
   const { data: booths = [], total = 0, page: currentPage, pageSize: currentPageSize } = paginatedResult;
@@ -137,6 +168,8 @@ export function BoothListPage() {
     const keywordParam = searchParams.get("keyword");
     const pageParam = parsePageFromParams(searchParams);
     const pageSizeParam = parsePageSizeFromParams(searchParams);
+    const sortFieldParam = parseSortFieldFromParams(searchParams);
+    const sortDirectionParam = parseSortDirectionFromParams(searchParams);
     if (cityParam !== city) setCity(cityParam || "");
     if (statusParam !== status) setStatus(statusParam || "");
     if (keywordParam !== debouncedKeyword) {
@@ -145,6 +178,8 @@ export function BoothListPage() {
     }
     if (pageParam !== page) setPage(pageParam);
     if (pageSizeParam !== pageSize) setPageSize(pageSizeParam);
+    if (sortFieldParam !== sortField) setSortField(sortFieldParam);
+    if (sortDirectionParam !== sortDirection) setSortDirection(sortDirectionParam);
   }, [searchParams]);
 
   useEffect(() => {
@@ -189,7 +224,7 @@ export function BoothListPage() {
     if (currentPage > 1) {
       const newPage = currentPage - 1;
       setPage(newPage);
-      syncToUrl(city, status, debouncedKeyword, newPage, pageSize);
+      syncToUrl(city, status, debouncedKeyword, newPage, pageSize, sortField, sortDirection);
     }
   };
 
@@ -197,7 +232,7 @@ export function BoothListPage() {
     if (currentPage < totalPages) {
       const newPage = currentPage + 1;
       setPage(newPage);
-      syncToUrl(city, status, debouncedKeyword, newPage, pageSize);
+      syncToUrl(city, status, debouncedKeyword, newPage, pageSize, sortField, sortDirection);
     }
   };
 
@@ -297,10 +332,42 @@ export function BoothListPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>城市</TableHead>
+                      <TableHead
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => handleSort("city")}
+                      >
+                        <div className="flex items-center gap-1">
+                          城市
+                          {sortField === "city" ? (
+                            sortDirection === "asc" ? (
+                              <ChevronUp className="h-4 w-4 text-primary" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-primary" />
+                            )
+                          ) : (
+                            <ChevronUp className="h-4 w-4 text-muted-foreground/30" />
+                          )}
+                        </div>
+                      </TableHead>
                       <TableHead>地址</TableHead>
                       <TableHead>状态</TableHead>
-                      <TableHead>发现日期</TableHead>
+                      <TableHead
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => handleSort("discovery_date")}
+                      >
+                        <div className="flex items-center gap-1">
+                          发现日期
+                          {sortField === "discovery_date" ? (
+                            sortDirection === "asc" ? (
+                              <ChevronUp className="h-4 w-4 text-primary" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-primary" />
+                            )
+                          ) : (
+                            <ChevronUp className="h-4 w-4 text-muted-foreground/30" />
+                          )}
+                        </div>
+                      </TableHead>
                       <TableHead>备注</TableHead>
                       <TableHead className="w-24">操作</TableHead>
                     </TableRow>

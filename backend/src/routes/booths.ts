@@ -44,7 +44,13 @@ router.get("/", (req: Request, res: Response) => {
   const page = Number(req.query.page);
   const pageSizeRaw = Number(req.query.pageSize);
   const pageSize = VALID_PAGE_SIZES.includes(pageSizeRaw) ? pageSizeRaw : 10;
-  res.json(getAllBooths(city, status, keyword, page, pageSize));
+  const sortFieldRaw = req.query.sortField as string | undefined;
+  const sortDirectionRaw = req.query.sortDirection as string | undefined;
+  const VALID_SORT_FIELDS = ["discovery_date", "city"];
+  const VALID_SORT_DIRECTIONS = ["asc", "desc"];
+  const sortField = VALID_SORT_FIELDS.includes(sortFieldRaw as string) ? sortFieldRaw : undefined;
+  const sortDirection = VALID_SORT_DIRECTIONS.includes(sortDirectionRaw as string) ? sortDirectionRaw : "asc";
+  res.json(getAllBooths(city, status, keyword, page, pageSize, sortField as "discovery_date" | "city" | undefined, sortDirection as "asc" | "desc"));
 });
 
 router.get("/cities", (_req: Request, res: Response) => {

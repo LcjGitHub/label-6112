@@ -1,5 +1,8 @@
 export type BoothStatus = "available" | "damaged" | "demolished";
 
+export type BoothSortField = "discovery_date" | "city";
+export type SortDirection = "asc" | "desc";
+
 export interface Booth {
   id: number;
   city: string;

@@ -4,12 +4,14 @@ import fs from "fs";
 import {
   Booth,
   BoothInput,
+  BoothSortField,
   BoothStatistics,
   BoothStatus,
   InspectionRecord,
   InspectionRecordInput,
   InspectionRecordUpdateInput,
   PaginatedResult,
+  SortDirection,
 } from "./types";
 
 const SCHEMA_SQL = `
@@ -75,7 +77,9 @@ export function getAllBooths(
   status?: string,
   keyword?: string,
   page: number = 1,
-  pageSize: number = 10
+  pageSize: number = 10,
+  sortField?: BoothSortField,
+  sortDirection: SortDirection = "asc"
 ): PaginatedResult<Booth> {
   const conditions: string[] = [];
   const params: (string | number)[] = [];
@@ -109,7 +113,17 @@ export function getAllBooths(
   }
   const offset = (validPage - 1) * validPageSize;
 
-  const dataSql = "SELECT * FROM booths" + whereClause + " ORDER BY id ASC LIMIT ? OFFSET ?";
+  const VALID_SORT_FIELDS: BoothSortField[] = ["discovery_date", "city"];
+  const VALID_SORT_DIRECTIONS: SortDirection[] = ["asc", "desc"];
+  const validSortField = VALID_SORT_FIELDS.includes(sortField as BoothSortField) ? sortField : undefined;
+  const validSortDirection = VALID_SORT_DIRECTIONS.includes(sortDirection as SortDirection) ? sortDirection : "asc";
+
+  let orderByClause = " ORDER BY id ASC";
+  if (validSortField) {
+    orderByClause = ` ORDER BY ${validSortField} ${validSortDirection.toUpperCase()}, id ASC`;
+  }
+
+  const dataSql = "SELECT * FROM booths" + whereClause + orderByClause + " LIMIT ? OFFSET ?";
   const dataParams = [...params, validPageSize, offset];
   const data = db.prepare(dataSql).all(...dataParams) as Booth[];
 

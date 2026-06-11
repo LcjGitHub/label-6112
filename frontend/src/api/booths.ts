@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { Booth, BoothInput, BoothStatistics, InspectionRecord, InspectionRecordInput, InspectionRecordUpdateInput, PaginatedResult } from "@/types/booth";
+import type { Booth, BoothInput, BoothSortField, BoothStatistics, InspectionRecord, InspectionRecordInput, InspectionRecordUpdateInput, PaginatedResult, SortDirection } from "@/types/booth";
 
 const api = axios.create({ baseURL: "/api" });
 
@@ -8,7 +8,9 @@ export async function fetchBooths(
   status?: string,
   keyword?: string,
   page: number = 1,
-  pageSize: number = 10
+  pageSize: number = 10,
+  sortField?: BoothSortField,
+  sortDirection: SortDirection = "asc"
 ): Promise<PaginatedResult<Booth>> {
   const params: Record<string, string | number> = {};
   if (city) params.city = city;
@@ -17,6 +19,8 @@ export async function fetchBooths(
   if (trimmedKeyword) params.keyword = trimmedKeyword;
   params.page = page;
   params.pageSize = pageSize;
+  if (sortField) params.sortField = sortField;
+  params.sortDirection = sortDirection;
   const { data } = await api.get<PaginatedResult<Booth>>("/booths", { params });
   return data;
 }
