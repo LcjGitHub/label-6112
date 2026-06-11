@@ -20,6 +20,7 @@ import {
   getAllTags,
   setBoothTags,
   getTagsByBoothId,
+  getRecentInspections,
 } from "../db";
 import {
   validateBoothInput,
@@ -127,6 +128,12 @@ router.get("/cities", (_req: Request, res: Response) => {
 
 router.get("/statistics", (_req: Request, res: Response) => {
   res.json(getStatistics());
+});
+
+router.get("/inspections/recent", (req: Request, res: Response) => {
+  const limitRaw = Number(req.query.limit);
+  const limit = Number.isInteger(limitRaw) && limitRaw > 0 ? limitRaw : 20;
+  res.json(getRecentInspections(limit));
 });
 
 router.get("/:id", (req: Request, res: Response) => {

@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { Booth, BoothInput, BoothSortField, BoothStatistics, Favorite, FavoriteBooth, InspectionRecord, InspectionRecordInput, InspectionRecordUpdateInput, OperationLog, PaginatedResult, SortDirection, Tag } from "@/types/booth";
+import type { Booth, BoothInput, BoothSortField, BoothStatistics, Favorite, FavoriteBooth, InspectionRecord, InspectionRecordInput, InspectionRecordUpdateInput, OperationLog, PaginatedResult, RecentInspection, SortDirection, Tag } from "@/types/booth";
 import { getSessionKey } from "@/lib/session";
 
 const api = axios.create({ baseURL: "/api" });
@@ -62,6 +62,13 @@ export async function deleteBooth(id: number): Promise<void> {
 
 export async function fetchStatistics(): Promise<BoothStatistics> {
   const { data } = await api.get<BoothStatistics>("/booths/statistics");
+  return data;
+}
+
+export async function fetchRecentInspections(limit: number = 20): Promise<RecentInspection[]> {
+  const params: Record<string, number> = {};
+  if (limit > 0) params.limit = limit;
+  const { data } = await api.get<RecentInspection[]>("/booths/inspections/recent", { params });
   return data;
 }
 

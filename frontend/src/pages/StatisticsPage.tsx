@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
-import { BarChart3, ArrowLeft, MapPin, Phone } from "lucide-react";
+import { BarChart3, ArrowLeft, MapPin, Phone, ClipboardList } from "lucide-react";
 import { fetchStatistics } from "@/api/booths";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,12 +42,20 @@ export function StatisticsPage() {
           <BarChart3 className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-bold">数据统计概览</h1>
         </div>
-        <Link to="/">
-          <Button variant="outline">
-            <ArrowLeft className="h-4 w-4" />
-            返回列表
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/recent-inspections">
+            <Button variant="outline">
+              <ClipboardList className="h-4 w-4" />
+              最近巡检
+            </Button>
+          </Link>
+          <Link to="/">
+            <Button variant="outline">
+              <ArrowLeft className="h-4 w-4" />
+              返回列表
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {isLoading && <p className="p-6 text-muted-foreground">加载中...</p>}

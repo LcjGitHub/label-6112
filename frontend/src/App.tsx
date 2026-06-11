@@ -4,6 +4,7 @@ import { BoothDetailPage } from "@/pages/BoothDetailPage";
 import { StatisticsPage } from "@/pages/StatisticsPage";
 import { OperationLogPage } from "@/pages/OperationLogPage";
 import { FavoritesPage } from "@/pages/FavoritesPage";
+import { RecentInspectionsPage } from "@/pages/RecentInspectionsPage";
 
 export function App() {
   return (
@@ -13,6 +14,7 @@ export function App() {
         <Route path="/favorites" element={<FavoritesPage />} />
         <Route path="/statistics" element={<StatisticsPage />} />
         <Route path="/operation-logs" element={<OperationLogPage />} />
+        <Route path="/recent-inspections" element={<RecentInspectionsPage />} />
         <Route path="/booths/:id" element={<BoothDetailPage />} />
       </Routes>
     </BrowserRouter>

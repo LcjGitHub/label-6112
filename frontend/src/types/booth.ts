@@ -14,6 +14,16 @@ export interface LatestInspection {
   remarks: string;
 }
 
+export interface RecentInspection {
+  id: number;
+  booth_id: number;
+  inspector_name: string;
+  inspection_date: string;
+  remarks: string;
+  city: string;
+  address: string;
+}
+
 export interface Booth {
   id: number;
   city: string;

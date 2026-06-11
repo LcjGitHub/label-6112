@@ -16,6 +16,7 @@ import {
   OperationLog,
   OperationType,
   PaginatedResult,
+  RecentInspection,
   SortDirection,
   Tag,
 } from "./types";
@@ -294,6 +295,19 @@ export function getInspectionsByBoothId(boothId: number): InspectionRecord[] {
     .all(boothId) as InspectionRecord[];
 }
 
+export function getRecentInspections(limit: number = 20): RecentInspection[] {
+  const validLimit = Math.max(1, Math.min(limit, 100));
+  return db
+    .prepare(
+      `SELECT ir.id, ir.booth_id, ir.inspector_name, ir.inspection_date, ir.remarks, b.city, b.address
+       FROM inspection_records ir
+       INNER JOIN booths b ON ir.booth_id = b.id
+       ORDER BY ir.inspection_date DESC, ir.id DESC
+       LIMIT ?`
+    )
+    .all(validLimit) as RecentInspection[];
+}
+
 export function createInspectionRecord(input: InspectionRecordInput): InspectionRecord {
   const stmt = db.prepare(
     `INSERT INTO inspection_records (booth_id, inspector_name, inspection_date, remarks)
@@ -478,15 +492,20 @@ export function seedIfEmpty(): void {
 
   if (inspectionCount === 0) {
     const boothIds = (db.prepare("SELECT id FROM booths ORDER BY id ASC").all() as { id: number }[]).map((r) => r.id);
-    const inspectors = ["张三", "李四", "王五", "赵六", "钱七", "孙八"];
+    const inspectors = ["张三", "李四", "王五", "赵六", "钱七", "孙八", "周九", "吴十"];
     const remarksPool = [
       "设备运行正常，外观整洁",
       "发现玻璃轻微破损，已记录待维修",
-      "电话功能测试通过",
-      "内部卫生情况良好",
-      "外部有少量涂鸦，需清理",
-      "门锁略有松动，已紧固",
-      "指示灯全部正常工作",
+      "电话功能测试通过，通话质量良好",
+      "内部卫生情况良好，无杂物堆积",
+      "外部有少量涂鸦，需安排清理",
+      "门锁略有松动，已现场紧固处理",
+      "指示灯全部正常工作，亮度适宜",
+      "顶棚有轻微渗水痕迹，需进一步检查",
+      "座椅完好无损，清洁到位",
+      "紧急呼叫按钮功能测试正常",
+      "通风系统运行正常，无异味",
+      "照明设备亮度正常，无闪烁",
     ];
 
     const insertInsp = db.prepare(
@@ -495,18 +514,20 @@ export function seedIfEmpty(): void {
     );
 
     const seedInspections = db.transaction((ids: number[]) => {
+      let recordIndex = 0;
       for (let i = 0; i < ids.length; i++) {
         const boothId = ids[i];
-        const count = (i % 2 === 0 ? 2 : 1);
+        const count = 4 + (i % 3);
         for (let j = 0; j < count; j++) {
-          const date = new Date(2024, 8 + j, 10 + i * 3 + j * 5);
+          const date = new Date(2025, 11 - Math.floor(recordIndex / 5), 1 + (recordIndex % 28), 9 + (recordIndex % 8), 0, 0);
           const dateStr = date.toISOString().slice(0, 10);
           insertInsp.run({
             booth_id: boothId,
-            inspector_name: inspectors[(i + j) % inspectors.length],
+            inspector_name: inspectors[recordIndex % inspectors.length],
             inspection_date: dateStr,
-            remarks: remarksPool[(i * 2 + j) % remarksPool.length],
+            remarks: remarksPool[recordIndex % remarksPool.length],
           });
+          recordIndex++;
         }
       }
     });

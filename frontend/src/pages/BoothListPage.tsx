@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
-import { MapPin, Plus, Trash2, BarChart3, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Download, History, Star } from "lucide-react";
+import { MapPin, Plus, Trash2, BarChart3, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Download, History, Star, ClipboardList } from "lucide-react";
 import { fetchBooths, fetchCities, createBooth, deleteBooth, exportBoothsCsv, fetchFavoriteIds, fetchAllTags } from "@/api/booths";
 import { BoothForm } from "@/components/BoothForm";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -309,6 +309,12 @@ export function BoothListPage() {
             <Button variant="outline">
               <Star className="h-4 w-4" />
               我的收藏
+            </Button>
+          </Link>
+          <Link to="/recent-inspections">
+            <Button variant="outline">
+              <ClipboardList className="h-4 w-4" />
+              最近巡检
             </Button>
           </Link>
           <Link to="/statistics">
