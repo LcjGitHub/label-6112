@@ -44,21 +44,32 @@ function validateInput(body: Record<string, unknown>): BoothInput | null {
 function validateInspectionInput(
   body: Record<string, unknown>,
   boothId: number
-): InspectionRecordInput | null {
+): { input: InspectionRecordInput; errors: Record<string, string> } | { input: null; errors: Record<string, string> } {
+  const errors: Record<string, string> = {};
   const { inspector_name, inspection_date, remarks } = body;
-  if (
-    typeof inspector_name !== "string" ||
-    inspector_name.trim().length === 0 ||
-    typeof inspection_date !== "string" ||
-    inspection_date.trim().length === 0
-  ) {
-    return null;
+
+  if (typeof inspector_name !== "string" || inspector_name.trim().length === 0) {
+    errors.inspector_name = "请输入巡检人姓名";
   }
+  if (typeof inspection_date !== "string" || inspection_date.trim().length === 0) {
+    errors.inspection_date = "请选择巡检日期";
+  }
+  if (typeof remarks !== "string" || remarks.trim().length === 0) {
+    errors.remarks = "请输入备注说明";
+  }
+
+  if (Object.keys(errors).length > 0) {
+    return { input: null, errors };
+  }
+
   return {
-    booth_id: boothId,
-    inspector_name: inspector_name.trim(),
-    inspection_date: inspection_date.trim(),
-    remarks: typeof remarks === "string" ? remarks : "",
+    input: {
+      booth_id: boothId,
+      inspector_name: (inspector_name as string).trim(),
+      inspection_date: (inspection_date as string).trim(),
+      remarks: (remarks as string).trim(),
+    },
+    errors,
   };
 }
 
@@ -160,12 +171,12 @@ router.post("/:id/inspections", (req: Request, res: Response) => {
     res.status(404).json({ error: "Booth not found" });
     return;
   }
-  const input = validateInspectionInput(req.body, id);
-  if (!input) {
-    res.status(400).json({ error: "Invalid input: inspector_name and inspection_date are required" });
+  const result = validateInspectionInput(req.body, id);
+  if (!result.input) {
+    res.status(400).json({ error: "Validation failed", details: result.errors });
     return;
   }
-  const record = createInspectionRecord(input);
+  const record = createInspectionRecord(result.input);
   res.status(201).json(record);
 });
 
@@ -181,7 +192,7 @@ router.delete("/:id/inspections/:recordId", (req: Request, res: Response) => {
     res.status(404).json({ error: "Booth not found" });
     return;
   }
-  const deleted = deleteInspectionRecord(recordId);
+  const deleted = deleteInspectionRecord(recordId, id);
   if (!deleted) {
     res.status(404).json({ error: "Inspection record not found" });
     return;

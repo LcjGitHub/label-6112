@@ -112,8 +112,8 @@ export function createInspectionRecord(input: InspectionRecordInput): Inspection
     .get(result.lastInsertRowid as number) as InspectionRecord;
 }
 
-export function deleteInspectionRecord(id: number): boolean {
-  const result = db.prepare("DELETE FROM inspection_records WHERE id = ?").run(id);
+export function deleteInspectionRecord(id: number, boothId: number): boolean {
+  const result = db.prepare("DELETE FROM inspection_records WHERE id = ? AND booth_id = ?").run(id, boothId);
   return result.changes > 0;
 }
 
