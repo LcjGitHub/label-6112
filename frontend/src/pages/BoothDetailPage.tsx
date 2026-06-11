@@ -246,14 +246,16 @@ export function BoothDetailPage() {
                     <span>{booth.discovery_date}</span>
                   </div>
                 </div>
-                {booth.remark && (
-                  <div className="pt-3 border-t">
-                    <div className="text-sm">
-                      <span className="text-muted-foreground">备注：</span>
+                <div className="pt-3 border-t">
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">备注：</span>
+                    {booth.remark ? (
                       <p className="mt-1 text-foreground whitespace-pre-wrap">{booth.remark}</p>
-                    </div>
+                    ) : (
+                      <p className="mt-1 text-muted-foreground italic">暂无备注</p>
+                    )}
                   </div>
-                )}
+                </div>
                 {booth.photo_url && (
                   <img
                     src={booth.photo_url}

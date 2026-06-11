@@ -180,63 +180,65 @@ export function getStatistics(): BoothStatistics {
   return { total, byStatus, byCity };
 }
 
+const BOOTH_SEED_DATA: BoothInput[] = [
+  {
+    city: "北京",
+    address: "东城区王府井大街88号",
+    longitude: 116.4174,
+    latitude: 39.9092,
+    status: "available",
+    discovery_date: "2024-03-15",
+    photo_url: "https://picsum.photos/seed/booth1/400/300",
+    remark: "位于王府井步行街入口处，周边人流量大，设备运行良好",
+  },
+  {
+    city: "上海",
+    address: "黄浦区南京东路100号",
+    longitude: 121.4844,
+    latitude: 31.2359,
+    status: "damaged",
+    discovery_date: "2024-05-20",
+    photo_url: "https://picsum.photos/seed/booth2/400/300",
+    remark: "听筒线缆断裂，玻璃面板有裂纹，已安排维修人员处理，预计下周修复",
+  },
+  {
+    city: "广州",
+    address: "越秀区北京路168号",
+    longitude: 113.2644,
+    latitude: 23.1291,
+    status: "available",
+    discovery_date: "2024-06-08",
+    photo_url: "https://picsum.photos/seed/booth3/400/300",
+    remark: null,
+  },
+  {
+    city: "深圳",
+    address: "福田区深南大道5001号",
+    longitude: 114.0579,
+    latitude: 22.5431,
+    status: "demolished",
+    discovery_date: "2023-11-30",
+    photo_url: "https://picsum.photos/seed/booth4/400/300",
+    remark: "因市政道路扩建工程拆除，已完成注销手续，相关档案已归档保存",
+  },
+  {
+    city: "北京",
+    address: "西城区西单北大街120号",
+    longitude: 116.3735,
+    latitude: 39.9133,
+    status: "available",
+    discovery_date: "2024-08-12",
+    photo_url: "https://picsum.photos/seed/booth5/400/300",
+    remark: "靠近地铁4号线出口，2024年9月完成设备升级，支持新的支付功能",
+  },
+];
+
 export function seedIfEmpty(): void {
   const boothCount = (db.prepare("SELECT COUNT(*) as cnt FROM booths").get() as { cnt: number }).cnt;
   const inspectionCount = (db.prepare("SELECT COUNT(*) as cnt FROM inspection_records").get() as { cnt: number }).cnt;
 
   if (boothCount === 0) {
-    const seedData: BoothInput[] = [
-      {
-        city: "北京",
-        address: "东城区王府井大街88号",
-        longitude: 116.4174,
-        latitude: 39.9092,
-        status: "available",
-        discovery_date: "2024-03-15",
-        photo_url: "https://picsum.photos/seed/booth1/400/300",
-        remark: "位于王府井步行街入口处，周边人流量大，设备运行良好",
-      },
-      {
-        city: "上海",
-        address: "黄浦区南京东路100号",
-        longitude: 121.4844,
-        latitude: 31.2359,
-        status: "damaged",
-        discovery_date: "2024-05-20",
-        photo_url: "https://picsum.photos/seed/booth2/400/300",
-        remark: "听筒线缆断裂，玻璃面板有裂纹，已安排维修人员处理，预计下周修复",
-      },
-      {
-        city: "广州",
-        address: "越秀区北京路168号",
-        longitude: 113.2644,
-        latitude: 23.1291,
-        status: "available",
-        discovery_date: "2024-06-08",
-        photo_url: "https://picsum.photos/seed/booth3/400/300",
-        remark: null,
-      },
-      {
-        city: "深圳",
-        address: "福田区深南大道5001号",
-        longitude: 114.0579,
-        latitude: 22.5431,
-        status: "demolished",
-        discovery_date: "2023-11-30",
-        photo_url: "https://picsum.photos/seed/booth4/400/300",
-        remark: "因市政道路扩建工程拆除，已完成注销手续，相关档案已归档保存",
-      },
-      {
-        city: "北京",
-        address: "西城区西单北大街120号",
-        longitude: 116.3735,
-        latitude: 39.9133,
-        status: "available",
-        discovery_date: "2024-08-12",
-        photo_url: "https://picsum.photos/seed/booth5/400/300",
-        remark: "靠近地铁4号线出口，2024年9月完成设备升级，支持新的支付功能",
-      },
-    ];
+    const seedData = BOOTH_SEED_DATA;
 
     const insert = db.prepare(
       `INSERT INTO booths (city, address, longitude, latitude, status, discovery_date, photo_url, remark)
@@ -291,5 +293,29 @@ export function seedIfEmpty(): void {
     seedInspections(boothIds);
     const seeded = (db.prepare("SELECT COUNT(*) as cnt FROM inspection_records").get() as { cnt: number }).cnt;
     console.log(`Seeded ${seeded} inspection records.`);
+  }
+
+  try {
+    const existingBooths = db.prepare("SELECT id, city, address, remark FROM booths").all() as { id: number; city: string; address: string; remark: string | null }[];
+    const updateStmt = db.prepare("UPDATE booths SET remark = @remark WHERE id = @id");
+    let backfilledCount = 0;
+
+    for (const existing of existingBooths) {
+      if (existing.remark === null || existing.remark.trim() === "") {
+        const seedMatch = BOOTH_SEED_DATA.find(
+          (s) => s.city === existing.city && s.address === existing.address
+        );
+        if (seedMatch && seedMatch.remark !== null) {
+          updateStmt.run({ id: existing.id, remark: seedMatch.remark });
+          backfilledCount++;
+        }
+      }
+    }
+
+    if (backfilledCount > 0) {
+      console.log(`Backfilled remarks for ${backfilledCount} booth records.`);
+    }
+  } catch (e) {
+    // Column might not exist yet, ignore
   }
 }

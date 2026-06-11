@@ -239,7 +239,7 @@ export function BoothListPage() {
                           </TableCell>
                           <TableCell>{STATUS_LABELS[booth.status]}</TableCell>
                           <TableCell>{booth.discovery_date}</TableCell>
-                          <TableCell>
+                          <TableCell title={booth.remark || undefined}>
                             {booth.remark && booth.remark.length > 30
                               ? booth.remark.slice(0, 30) + "..."
                               : booth.remark || "-"}
