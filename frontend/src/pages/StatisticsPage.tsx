@@ -27,6 +27,10 @@ export function StatisticsPage() {
     navigate(`/?city=${encodeURIComponent(city)}`);
   };
 
+  const handleStatusClick = (status: BoothStatus) => {
+    navigate(`/?status=${encodeURIComponent(status)}`);
+  };
+
   useEffect(() => {
     document.title = "数据统计概览";
   }, []);
@@ -73,20 +77,24 @@ export function StatisticsPage() {
             <CardContent>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 {(Object.keys(STATUS_LABELS) as BoothStatus[]).map((status) => (
-                  <div
+                  <button
                     key={status}
-                    className="flex items-center gap-3 rounded-lg border p-4"
+                    type="button"
+                    className="flex w-full items-center gap-3 rounded-lg border p-4 text-left hover:border-primary hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-all"
+                    onClick={() => handleStatusClick(status)}
+                    title={`点击查看${STATUS_LABELS[status]}的电话亭列表`}
                   >
-                    <span className="text-3xl">{STATUS_ICONS[status]}</span>
-                    <div>
+                    <span className="text-3xl shrink-0">{STATUS_ICONS[status]}</span>
+                    <div className="min-w-0">
                       <p className="text-2xl font-bold">
                         {statistics.byStatus[status]}
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {STATUS_LABELS[status]}
                       </p>
+                      <p className="text-xs text-muted-foreground mt-1">点击查看列表</p>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </CardContent>
