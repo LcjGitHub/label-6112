@@ -6,6 +6,7 @@ import { fetchBooths, fetchCities, createBooth, deleteBooth } from "@/api/booths
 import { BoothForm } from "@/components/BoothForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { HighlightText } from "@/components/HighlightText";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -253,7 +254,10 @@ export function BoothListPage() {
                               to={`/booths/${booth.id}`}
                               className="text-primary hover:underline"
                             >
-                              {booth.address}
+                              <HighlightText
+                                text={booth.address}
+                                keyword={debouncedKeyword}
+                              />
                             </Link>
                           </TableCell>
                           <TableCell>{STATUS_LABELS[booth.status]}</TableCell>
