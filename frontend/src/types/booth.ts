@@ -3,6 +3,12 @@ export type BoothStatus = "available" | "damaged" | "demolished";
 export type BoothSortField = "discovery_date" | "city";
 export type SortDirection = "asc" | "desc";
 
+export interface LatestInspection {
+  inspector_name: string;
+  inspection_date: string;
+  remarks: string;
+}
+
 export interface Booth {
   id: number;
   city: string;
@@ -14,6 +20,7 @@ export interface Booth {
   photo_url: string;
   remark: string | null;
   inspection_count?: number;
+  latest_inspection?: LatestInspection | null;
 }
 
 export interface BoothInput {

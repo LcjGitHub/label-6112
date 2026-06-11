@@ -10,6 +10,7 @@ import {
   InspectionRecord,
   InspectionRecordInput,
   InspectionRecordUpdateInput,
+  LatestInspection,
   PaginatedResult,
   SortDirection,
 } from "./types";
@@ -136,13 +137,16 @@ export function getAllBooths(
 }
 
 export function getBoothById(id: number): Booth | undefined {
-  return db.prepare(
+  const booth = db.prepare(
     `SELECT b.*, COUNT(ir.id) as inspection_count
      FROM booths b
      LEFT JOIN inspection_records ir ON b.id = ir.booth_id
      WHERE b.id = ?
      GROUP BY b.id`
   ).get(id) as Booth | undefined;
+  if (!booth) return undefined;
+  booth.latest_inspection = getLatestInspectionByBoothId(id);
+  return booth;
 }
 
 export function getInspectionCountByBoothId(boothId: number): number {
@@ -150,6 +154,13 @@ export function getInspectionCountByBoothId(boothId: number): number {
     "SELECT COUNT(*) as cnt FROM inspection_records WHERE booth_id = ?"
   ).get(boothId) as { cnt: number };
   return result.cnt;
+}
+
+export function getLatestInspectionByBoothId(boothId: number): LatestInspection | null {
+  const result = db.prepare(
+    "SELECT inspector_name, inspection_date, remarks FROM inspection_records WHERE booth_id = ? ORDER BY inspection_date DESC, id DESC LIMIT 1"
+  ).get(boothId) as LatestInspection | undefined;
+  return result ?? null;
 }
 
 export function createBooth(input: BoothInput): Booth {

@@ -351,6 +351,39 @@ export function BoothDetailPage() {
                   </div>
                 </div>
                 <div className="pt-3 border-t">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ClipboardList className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">最近巡检</span>
+                  </div>
+                  {booth.latest_inspection ? (
+                    <div className="space-y-1.5 text-sm pl-6">
+                      <div className="flex items-center gap-1">
+                        <User className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-muted-foreground">巡检人：</span>
+                        <span>{booth.latest_inspection.inspector_name}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-muted-foreground">日期：</span>
+                        <span>{booth.latest_inspection.inspection_date}</span>
+                      </div>
+                      {booth.latest_inspection.remarks && (
+                        <div className="flex items-start gap-1">
+                          <MessageSquare className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />
+                          <span className="text-muted-foreground">备注：</span>
+                          <span className="text-foreground">
+                            {booth.latest_inspection.remarks.length > 50
+                              ? booth.latest_inspection.remarks.slice(0, 50) + "..."
+                              : booth.latest_inspection.remarks}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="pl-6 text-sm text-muted-foreground italic">暂无巡检记录</p>
+                  )}
+                </div>
+                <div className="pt-3 border-t">
                   <div className="text-sm">
                     <span className="text-muted-foreground">备注：</span>
                     {booth.remark ? (
