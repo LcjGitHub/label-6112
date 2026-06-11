@@ -88,3 +88,14 @@ export interface PaginatedResult<T> {
   page: number;
   pageSize: number;
 }
+
+export interface Favorite {
+  id: number;
+  session_key: string;
+  booth_id: number;
+  created_at: string;
+}
+
+export interface FavoriteBooth extends Booth {
+  favorited_at: string;
+}

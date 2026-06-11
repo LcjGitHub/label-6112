@@ -1,7 +1,16 @@
 import axios from "axios";
-import type { Booth, BoothInput, BoothSortField, BoothStatistics, InspectionRecord, InspectionRecordInput, InspectionRecordUpdateInput, OperationLog, PaginatedResult, SortDirection } from "@/types/booth";
+import type { Booth, BoothInput, BoothSortField, BoothStatistics, Favorite, FavoriteBooth, InspectionRecord, InspectionRecordInput, InspectionRecordUpdateInput, OperationLog, PaginatedResult, SortDirection } from "@/types/booth";
+import { getSessionKey } from "@/lib/session";
 
 const api = axios.create({ baseURL: "/api" });
+
+api.interceptors.request.use((config) => {
+  const key = getSessionKey();
+  if (key) {
+    config.headers["X-Session-Key"] = key;
+  }
+  return config;
+});
 
 export async function fetchBooths(
   city?: string,
@@ -119,4 +128,38 @@ export async function fetchOperationLogs(
   };
   const { data } = await api.get<PaginatedResult<OperationLog>>("/operation-logs", { params });
   return data;
+}
+
+export async function fetchFavorites(): Promise<FavoriteBooth[]> {
+  const { data } = await api.get<FavoriteBooth[]>("/booths/favorites/list");
+  return data;
+}
+
+export async function fetchFavoriteIds(): Promise<number[]> {
+  const { data } = await api.get<number[]>("/booths/favorites/ids");
+  return data;
+}
+
+export async function checkFavorite(boothId: number): Promise<boolean> {
+  const { data } = await api.get<{ favorited: boolean }>(`/booths/${boothId}/favorite`);
+  return data.favorited;
+}
+
+export async function addFavorite(boothId: number): Promise<Favorite> {
+  const { data } = await api.post<Favorite>(`/booths/${boothId}/favorite`);
+  return data;
+}
+
+export async function removeFavorite(boothId: number): Promise<void> {
+  await api.delete(`/booths/${boothId}/favorite`);
+}
+
+export async function toggleFavorite(boothId: number, isCurrentlyFavorited: boolean): Promise<boolean> {
+  if (isCurrentlyFavorited) {
+    await removeFavorite(boothId);
+    return false;
+  } else {
+    await addFavorite(boothId);
+    return true;
+  }
 }

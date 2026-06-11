@@ -12,6 +12,11 @@ import {
   updateInspectionRecord,
   deleteInspectionRecord,
   getBoothsForExport,
+  getFavorites,
+  getFavoriteIds,
+  addFavorite,
+  removeFavorite,
+  isFavorited,
 } from "../db";
 import {
   validateBoothInput,
@@ -192,6 +197,67 @@ router.delete("/:id/inspections/:recordId", (req: Request, res: Response) => {
     return;
   }
   res.status(204).send();
+});
+
+function extractSessionKey(req: Request): string | null {
+  const header = req.header("X-Session-Key");
+  if (header && header.trim()) return header.trim();
+  const query = req.query.session_key as string | undefined;
+  if (query && query.trim()) return query.trim();
+  return null;
+}
+
+function sendInvalidSessionKey(res: Response): void {
+  res.status(400).json({ error: "Missing or invalid session key (use X-Session-Key header or session_key query)" });
+}
+
+router.get("/favorites/list", (req: Request, res: Response) => {
+  const sessionKey = extractSessionKey(req);
+  if (!sessionKey) { sendInvalidSessionKey(res); return; }
+  res.json(getFavorites(sessionKey));
+});
+
+router.get("/favorites/ids", (req: Request, res: Response) => {
+  const sessionKey = extractSessionKey(req);
+  if (!sessionKey) { sendInvalidSessionKey(res); return; }
+  res.json(getFavoriteIds(sessionKey));
+});
+
+router.post("/:id/favorite", (req: Request, res: Response) => {
+  const id = parseId(req.params.id);
+  if (id === null) { sendInvalidId(res); return; }
+  const sessionKey = extractSessionKey(req);
+  if (!sessionKey) { sendInvalidSessionKey(res); return; }
+  if (!getBoothById(id)) { sendBoothNotFound(res); return; }
+  const result = addFavorite(sessionKey, id);
+  if (!result) {
+    res.status(409).json({ error: "Failed to add favorite" });
+    return;
+  }
+  res.status(201).json(result);
+});
+
+router.delete("/:id/favorite", (req: Request, res: Response) => {
+  const id = parseId(req.params.id);
+  if (id === null) { sendInvalidId(res); return; }
+  const sessionKey = extractSessionKey(req);
+  if (!sessionKey) { sendInvalidSessionKey(res); return; }
+  if (!getBoothById(id)) { sendBoothNotFound(res); return; }
+  const removed = removeFavorite(sessionKey, id);
+  if (!removed) {
+    res.status(404).json({ error: "Favorite not found" });
+    return;
+  }
+  res.status(204).send();
+});
+
+router.get("/:id/favorite", (req: Request, res: Response) => {
+  const id = parseId(req.params.id);
+  if (id === null) { sendInvalidId(res); return; }
+  const sessionKey = extractSessionKey(req);
+  if (!sessionKey) { sendInvalidSessionKey(res); return; }
+  if (!getBoothById(id)) { sendBoothNotFound(res); return; }
+  res.json({ favorited: isFavorited(sessionKey, id) });
 });
 
 export default router;

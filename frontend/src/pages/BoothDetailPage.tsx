@@ -5,9 +5,10 @@ import { ArrowLeft, MapPin, Pencil, Trash2, Plus, ClipboardList, User, Calendar,
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { fetchBooth, updateBooth, deleteBooth, fetchInspections, createInspection, deleteInspection, updateInspection } from "@/api/booths";
+import { fetchBooth, updateBooth, deleteBooth, fetchInspections, createInspection, deleteInspection, updateInspection, checkFavorite } from "@/api/booths";
 import { BoothForm } from "@/components/BoothForm";
 import { Button } from "@/components/ui/button";
+import { FavoriteButton } from "@/components/FavoriteButton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -84,6 +85,12 @@ export function BoothDetailPage() {
   } = useQuery({
     queryKey: ["inspections", boothId],
     queryFn: () => fetchInspections(boothId),
+    enabled: !Number.isNaN(boothId) && !!booth,
+  });
+
+  const { data: isFavorited = false } = useQuery({
+    queryKey: ["favorite", boothId],
+    queryFn: () => checkFavorite(boothId),
     enabled: !Number.isNaN(boothId) && !!booth,
   });
 
@@ -329,6 +336,14 @@ export function BoothDetailPage() {
                 <CardTitle className="flex items-center gap-2">
                   <MapPin className="h-5 w-5 text-primary" />
                   {booth.address}
+                  <FavoriteButton
+                    boothId={booth.id}
+                    isFavorited={isFavorited}
+                    size="sm"
+                    variant="ghost"
+                    showLabel
+                    className="ml-2"
+                  />
                 </CardTitle>
                 <div className="space-y-1">
                   <CardDescription>{booth.city} · {STATUS_LABELS[booth.status]}</CardDescription>

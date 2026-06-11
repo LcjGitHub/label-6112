@@ -7,6 +7,8 @@ import {
   BoothSortField,
   BoothStatistics,
   BoothStatus,
+  Favorite,
+  FavoriteBooth,
   InspectionRecord,
   InspectionRecordInput,
   InspectionRecordUpdateInput,
@@ -46,6 +48,15 @@ const SCHEMA_SQL = `
     booth_address TEXT NOT NULL,
     summary TEXT NOT NULL,
     created_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS favorites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_key TEXT NOT NULL,
+    booth_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (booth_id) REFERENCES booths(id) ON DELETE CASCADE,
+    UNIQUE(session_key, booth_id)
   )
 `;
 
@@ -496,4 +507,66 @@ export function seedIfEmpty(): void {
   } catch (e) {
     // Column might not exist yet, ignore
   }
+}
+
+export function getFavorites(sessionKey: string): FavoriteBooth[] {
+  const rows = db
+    .prepare(
+      `SELECT b.*, f.created_at as favorited_at
+       FROM favorites f
+       INNER JOIN booths b ON f.booth_id = b.id
+       WHERE f.session_key = ?
+       ORDER BY f.created_at DESC, f.id DESC`
+    )
+    .all(sessionKey) as FavoriteBooth[];
+  return rows;
+}
+
+export function getFavoriteIds(sessionKey: string): number[] {
+  const rows = db
+    .prepare("SELECT booth_id FROM favorites WHERE session_key = ?")
+    .all(sessionKey) as { booth_id: number }[];
+  return rows.map((r) => r.booth_id);
+}
+
+export function isFavorited(sessionKey: string, boothId: number): boolean {
+  const result = db
+    .prepare("SELECT COUNT(*) as cnt FROM favorites WHERE session_key = ? AND booth_id = ?")
+    .get(sessionKey, boothId) as { cnt: number };
+  return result.cnt > 0;
+}
+
+export function addFavorite(sessionKey: string, boothId: number): Favorite | null {
+  const existing = getBoothById(boothId);
+  if (!existing) return null;
+
+  const alreadyExists = db
+    .prepare("SELECT id FROM favorites WHERE session_key = ? AND booth_id = ?")
+    .get(sessionKey, boothId) as { id: number } | undefined;
+  if (alreadyExists) {
+    return db
+      .prepare("SELECT * FROM favorites WHERE id = ?")
+      .get(alreadyExists.id) as Favorite;
+  }
+
+  const now = new Date().toISOString();
+  const stmt = db.prepare(
+    `INSERT INTO favorites (session_key, booth_id, created_at)
+     VALUES (?, ?, ?)`
+  );
+  try {
+    const result = stmt.run(sessionKey, boothId, now);
+    return db
+      .prepare("SELECT * FROM favorites WHERE id = ?")
+      .get(result.lastInsertRowid as number) as Favorite;
+  } catch (e) {
+    return null;
+  }
+}
+
+export function removeFavorite(sessionKey: string, boothId: number): boolean {
+  const result = db
+    .prepare("DELETE FROM favorites WHERE session_key = ? AND booth_id = ?")
+    .run(sessionKey, boothId);
+  return result.changes > 0;
 }

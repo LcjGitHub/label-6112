@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
-import { MapPin, Plus, Trash2, BarChart3, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Download, History } from "lucide-react";
-import { fetchBooths, fetchCities, createBooth, deleteBooth, exportBoothsCsv } from "@/api/booths";
+import { MapPin, Plus, Trash2, BarChart3, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Download, History, Star } from "lucide-react";
+import { fetchBooths, fetchCities, createBooth, deleteBooth, exportBoothsCsv, fetchFavoriteIds } from "@/api/booths";
 import { BoothForm } from "@/components/BoothForm";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
+import { FavoriteButton } from "@/components/FavoriteButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HighlightText } from "@/components/HighlightText";
 import { Input } from "@/components/ui/input";
@@ -152,6 +153,11 @@ export function BoothListPage() {
     queryFn: fetchCities,
   });
 
+  const { data: favoriteIds = [] } = useQuery({
+    queryKey: ["favoriteIds"],
+    queryFn: fetchFavoriteIds,
+  });
+
   const emptyResult: PaginatedResult<Booth> = { data: [], total: 0, page: 1, pageSize: DEFAULT_PAGE_SIZE };
   const { data: paginatedResult = emptyResult, isLoading, isError, isFetching } = useQuery({
     queryKey: ["booths", city, status, debouncedKeyword, page, pageSize, sortField, sortDirection],
@@ -278,6 +284,12 @@ export function BoothListPage() {
           <h1 className="text-2xl font-bold">电话亭档案</h1>
         </div>
         <div className="flex gap-2">
+          <Link to="/favorites">
+            <Button variant="outline">
+              <Star className="h-4 w-4" />
+              我的收藏
+            </Button>
+          </Link>
           <Link to="/statistics">
             <Button variant="outline">
               <BarChart3 className="h-4 w-4" />
@@ -412,7 +424,7 @@ export function BoothListPage() {
                         </div>
                       </TableHead>
                       <TableHead>备注</TableHead>
-                      <TableHead className="w-24">操作</TableHead>
+                      <TableHead className="w-32">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -464,13 +476,20 @@ export function BoothListPage() {
                             )}
                           </TableCell>
                           <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setDeleteDialog({ open: true, booth })}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <FavoriteButton
+                                boothId={booth.id}
+                                isFavorited={favoriteIds.includes(booth.id)}
+                                size="icon"
+                              />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setDeleteDialog({ open: true, booth })}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))
