@@ -208,19 +208,20 @@ export function BoothListPage() {
                       <TableHead>地址</TableHead>
                       <TableHead>状态</TableHead>
                       <TableHead>发现日期</TableHead>
+                      <TableHead>备注</TableHead>
                       <TableHead className="w-24">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {showTableLoading && booths.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center text-muted-foreground">
                           加载中...
                         </TableCell>
                       </TableRow>
                     ) : booths.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center text-muted-foreground">
                           {city || status || debouncedKeyword ? "未找到匹配地址" : "暂无数据"}
                         </TableCell>
                       </TableRow>
@@ -238,6 +239,11 @@ export function BoothListPage() {
                           </TableCell>
                           <TableCell>{STATUS_LABELS[booth.status]}</TableCell>
                           <TableCell>{booth.discovery_date}</TableCell>
+                          <TableCell>
+                            {booth.remark && booth.remark.length > 30
+                              ? booth.remark.slice(0, 30) + "..."
+                              : booth.remark || "-"}
+                          </TableCell>
                           <TableCell>
                             <Button
                               variant="ghost"

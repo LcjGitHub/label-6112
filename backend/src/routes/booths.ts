@@ -18,7 +18,7 @@ const router = Router();
 const VALID_STATUSES: BoothStatus[] = ["available", "damaged", "demolished"];
 
 function validateInput(body: Record<string, unknown>): BoothInput | null {
-  const { city, address, longitude, latitude, status, discovery_date, photo_url } = body;
+  const { city, address, longitude, latitude, status, discovery_date, photo_url, remark } = body;
   if (
     typeof city !== "string" ||
     typeof address !== "string" ||
@@ -38,6 +38,7 @@ function validateInput(body: Record<string, unknown>): BoothInput | null {
     status: status as BoothStatus,
     discovery_date,
     photo_url: typeof photo_url === "string" ? photo_url : "",
+    remark: typeof remark === "string" && remark.trim() !== "" ? remark.trim() : null,
   };
 }
 

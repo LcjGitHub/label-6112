@@ -9,6 +9,7 @@ export interface Booth {
   status: BoothStatus;
   discovery_date: string;
   photo_url: string;
+  remark: string | null;
 }
 
 export interface BoothInput {
@@ -19,6 +20,7 @@ export interface BoothInput {
   status: BoothStatus;
   discovery_date: string;
   photo_url: string;
+  remark: string | null;
 }
 
 export interface BoothStatistics {

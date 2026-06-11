@@ -28,7 +28,8 @@ db.exec(`
     latitude REAL NOT NULL,
     status TEXT NOT NULL CHECK(status IN ('available', 'damaged', 'demolished')),
     discovery_date TEXT NOT NULL,
-    photo_url TEXT NOT NULL DEFAULT ''
+    photo_url TEXT NOT NULL DEFAULT '',
+    remark TEXT
   );
 
   CREATE TABLE IF NOT EXISTS inspection_records (
@@ -40,6 +41,12 @@ db.exec(`
     FOREIGN KEY (booth_id) REFERENCES booths(id) ON DELETE CASCADE
   )
 `);
+
+try {
+  db.exec(`ALTER TABLE booths ADD COLUMN remark TEXT`);
+} catch (e) {
+  // Column already exists, ignore
+}
 
 export function getAllBooths(
   city?: string,
@@ -97,8 +104,8 @@ export function getBoothById(id: number): Booth | undefined {
 
 export function createBooth(input: BoothInput): Booth {
   const stmt = db.prepare(
-    `INSERT INTO booths (city, address, longitude, latitude, status, discovery_date, photo_url)
-     VALUES (@city, @address, @longitude, @latitude, @status, @discovery_date, @photo_url)`
+    `INSERT INTO booths (city, address, longitude, latitude, status, discovery_date, photo_url, remark)
+     VALUES (@city, @address, @longitude, @latitude, @status, @discovery_date, @photo_url, @remark)`
   );
   const result = stmt.run(input);
   return getBoothById(result.lastInsertRowid as number)!;
@@ -112,7 +119,7 @@ export function updateBooth(id: number, input: BoothInput): Booth | undefined {
     `UPDATE booths SET
       city = @city, address = @address, longitude = @longitude,
       latitude = @latitude, status = @status, discovery_date = @discovery_date,
-      photo_url = @photo_url
+      photo_url = @photo_url, remark = @remark
      WHERE id = @id`
   ).run({ ...input, id });
 
@@ -187,6 +194,7 @@ export function seedIfEmpty(): void {
         status: "available",
         discovery_date: "2024-03-15",
         photo_url: "https://picsum.photos/seed/booth1/400/300",
+        remark: "位于王府井步行街入口处，周边人流量大，设备运行良好",
       },
       {
         city: "上海",
@@ -196,6 +204,7 @@ export function seedIfEmpty(): void {
         status: "damaged",
         discovery_date: "2024-05-20",
         photo_url: "https://picsum.photos/seed/booth2/400/300",
+        remark: "听筒线缆断裂，玻璃面板有裂纹，已安排维修人员处理，预计下周修复",
       },
       {
         city: "广州",
@@ -205,6 +214,7 @@ export function seedIfEmpty(): void {
         status: "available",
         discovery_date: "2024-06-08",
         photo_url: "https://picsum.photos/seed/booth3/400/300",
+        remark: null,
       },
       {
         city: "深圳",
@@ -214,6 +224,7 @@ export function seedIfEmpty(): void {
         status: "demolished",
         discovery_date: "2023-11-30",
         photo_url: "https://picsum.photos/seed/booth4/400/300",
+        remark: "因市政道路扩建工程拆除，已完成注销手续，相关档案已归档保存",
       },
       {
         city: "北京",
@@ -223,12 +234,13 @@ export function seedIfEmpty(): void {
         status: "available",
         discovery_date: "2024-08-12",
         photo_url: "https://picsum.photos/seed/booth5/400/300",
+        remark: "靠近地铁4号线出口，2024年9月完成设备升级，支持新的支付功能",
       },
     ];
 
     const insert = db.prepare(
-      `INSERT INTO booths (city, address, longitude, latitude, status, discovery_date, photo_url)
-       VALUES (@city, @address, @longitude, @latitude, @status, @discovery_date, @photo_url)`
+      `INSERT INTO booths (city, address, longitude, latitude, status, discovery_date, photo_url, remark)
+       VALUES (@city, @address, @longitude, @latitude, @status, @discovery_date, @photo_url, @remark)`
     );
 
     const insertMany = db.transaction((items: BoothInput[]) => {

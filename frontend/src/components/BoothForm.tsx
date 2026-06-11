@@ -22,6 +22,7 @@ const boothSchema = z.object({
   status: z.enum(["available", "damaged", "demolished"]),
   discovery_date: z.string().min(1, "请输入发现日期"),
   photo_url: z.string().url("请输入有效 URL").or(z.literal("")),
+  remark: z.string().max(500, "备注不能超过500字").or(z.literal("")).nullable(),
 });
 
 type BoothFormValues = z.infer<typeof boothSchema>;
@@ -57,6 +58,7 @@ export function BoothForm({
       status: defaultValues?.status ?? "available",
       discovery_date: defaultValues?.discovery_date ?? "",
       photo_url: defaultValues?.photo_url ?? "",
+      remark: defaultValues?.remark ?? "",
     },
   });
 
@@ -118,6 +120,18 @@ export function BoothForm({
         <Label htmlFor="photo_url">照片 URL</Label>
         <Input id="photo_url" {...register("photo_url")} placeholder="https://..." />
         {errors.photo_url && <p className="text-sm text-destructive">{errors.photo_url.message}</p>}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="remark">备注</Label>
+        <textarea
+          id="remark"
+          rows={4}
+          className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+          placeholder="请输入备注信息（选填，最多500字）"
+          {...register("remark")}
+        />
+        {errors.remark && <p className="text-sm text-destructive">{errors.remark.message}</p>}
       </div>
 
       <div className="flex gap-2">
