@@ -52,6 +52,7 @@ export function BoothDetailPage() {
   const [editingRecordId, setEditingRecordId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<InspectionEditFormValues>({ inspector_name: "", remarks: "" });
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+  const [boothServerErrors, setBoothServerErrors] = useState<Record<string, string>>({});
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>({
     open: false,
     target: "booth",
@@ -121,8 +122,19 @@ export function BoothDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["booths"] });
       queryClient.invalidateQueries({ queryKey: ["cities"] });
       queryClient.invalidateQueries({ queryKey: ["statistics"] });
+      setBoothServerErrors({});
       setEditing(false);
       showToast("电话亭信息已更新");
+    },
+    onError: (error) => {
+      const details = extractFieldDetails(error);
+      if (details) {
+        setBoothServerErrors(details);
+        showErrorToast("更新失败：请检查字段内容");
+      } else {
+        setBoothServerErrors({});
+        showErrorToast("更新失败，请稍后重试");
+      }
     },
   });
 
@@ -275,7 +287,7 @@ export function BoothDetailPage() {
           返回列表
         </Link>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setEditing((v) => !v)}>
+          <Button variant="outline" size="sm" onClick={() => { setEditing((v) => !v); if (editing) setBoothServerErrors({}); }}>
             <Pencil className="h-4 w-4" />
             {editing ? "取消编辑" : "编辑"}
           </Button>
@@ -301,8 +313,9 @@ export function BoothDetailPage() {
               <BoothForm
                 defaultValues={booth}
                 onSubmit={(values) => updateMutation.mutate(values)}
-                onCancel={() => setEditing(false)}
+                onCancel={() => { setEditing(false); setBoothServerErrors({}); }}
                 isSubmitting={updateMutation.isPending}
+                serverErrors={Object.keys(boothServerErrors).length > 0 ? boothServerErrors : undefined}
               />
             </CardContent>
           </Card>

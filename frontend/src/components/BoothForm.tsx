@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +34,7 @@ interface BoothFormProps {
   onCancel?: () => void;
   submitLabel?: string;
   isSubmitting?: boolean;
+  serverErrors?: Record<string, string>;
 }
 
 export function BoothForm({
@@ -41,11 +43,13 @@ export function BoothForm({
   onCancel,
   submitLabel = "保存",
   isSubmitting,
+  serverErrors,
 }: BoothFormProps) {
   const {
     register,
     handleSubmit,
     setValue,
+    setError,
     watch,
     formState: { errors },
   } = useForm<BoothFormValues>({
@@ -61,6 +65,16 @@ export function BoothForm({
       remark: defaultValues?.remark ?? "",
     },
   });
+
+  const serverErrorRef = React.useRef(serverErrors);
+  React.useEffect(() => {
+    if (serverErrors && serverErrors !== serverErrorRef.current) {
+      serverErrorRef.current = serverErrors;
+      for (const [field, message] of Object.entries(serverErrors)) {
+        setError(field as keyof BoothFormValues, { type: "server", message });
+      }
+    }
+  }, [serverErrors, setError]);
 
   const status = watch("status");
   const remarkValue = watch("remark") || "";

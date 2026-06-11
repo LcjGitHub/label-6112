@@ -56,6 +56,7 @@ export function BoothListPage() {
   const [showForm, setShowForm] = useState(false);
   const [page, setPage] = useState<number>(parsePageFromParams(searchParams));
   const [pageSize, setPageSize] = useState<number>(parsePageSizeFromParams(searchParams));
+  const [createServerErrors, setCreateServerErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     return () => {
@@ -158,7 +159,20 @@ export function BoothListPage() {
       queryClient.invalidateQueries({ queryKey: ["booths"] });
       queryClient.invalidateQueries({ queryKey: ["cities"] });
       queryClient.invalidateQueries({ queryKey: ["statistics"] });
+      setCreateServerErrors({});
       setShowForm(false);
+    },
+    onError: (error) => {
+      try {
+        const axiosErr = error as { response?: { data?: { details?: Record<string, string> } } };
+        if (axiosErr.response?.data?.details && typeof axiosErr.response.data.details === "object") {
+          setCreateServerErrors(axiosErr.response.data.details);
+        } else {
+          setCreateServerErrors({});
+        }
+      } catch {
+        setCreateServerErrors({});
+      }
     },
   });
 
@@ -224,6 +238,7 @@ export function BoothListPage() {
               onCancel={() => setShowForm(false)}
               submitLabel="创建"
               isSubmitting={createMutation.isPending}
+              serverErrors={Object.keys(createServerErrors).length > 0 ? createServerErrors : undefined}
             />
           </CardContent>
         </Card>
@@ -277,7 +292,7 @@ export function BoothListPage() {
         <CardContent className="p-0">
           {isError && <p className="p-6 text-destructive">加载失败，请确认后端已启动。</p>}
           {!isError && (
-            <>
+            <TooltipProvider delayDuration={200}>
               <div className="relative">
                 <Table>
                   <TableHeader>
@@ -320,20 +335,20 @@ export function BoothListPage() {
                           </TableCell>
                           <TableCell>{STATUS_LABELS[booth.status]}</TableCell>
                           <TableCell>{booth.discovery_date}</TableCell>
-                          <TableCell>
+                          <TableCell className="max-w-[240px]">
                             {booth.remark ? (
-                              <TooltipProvider delayDuration={200}>
+                              booth.remark.length > 30 ? (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <span className="cursor-default">
-                                      {booth.remark.length > 30 ? booth.remark.slice(0, 30) + "..." : booth.remark}
+                                    <span className="block max-w-full truncate cursor-default">
+                                      {booth.remark.slice(0, 30) + "..."}
                                     </span>
                                   </TooltipTrigger>
-                                  <TooltipContent side="top">
-                                    {booth.remark}
-                                  </TooltipContent>
+                                  <TooltipContent side="top">{booth.remark}</TooltipContent>
                                 </Tooltip>
-                              </TooltipProvider>
+                              ) : (
+                                <span className="block max-w-full truncate">{booth.remark}</span>
+                              )
                             ) : (
                               "-"
                             )}
@@ -416,7 +431,7 @@ export function BoothListPage() {
                   </Button>
                 </div>
               </div>
-            </>
+            </TooltipProvider>
           )}
         </CardContent>
       </Card>
