@@ -108,6 +108,7 @@ tmp/
 *.temp
 *.bak
 *.cache
+*.tsbuildinfo
 .sass-cache/
 .eslintcache
 .stylelintcache

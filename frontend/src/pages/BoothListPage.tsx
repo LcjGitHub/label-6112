@@ -44,7 +44,7 @@ export function BoothListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [city, setCity] = useState<string>(searchParams.get("city") || "");
   const [status, setStatus] = useState<string>(searchParams.get("status") || "");
-  const [keywordInput, setKeywordInput] = useState<string>("");
+  const [keywordInput, setKeywordInput] = useState<string>(searchParams.get("keyword") || "");
   const [debouncedKeyword, setDebouncedKeyword] = useState<string>(searchParams.get("keyword") || "");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -52,17 +52,22 @@ export function BoothListPage() {
   const [pageSize, setPageSize] = useState<number>(parsePageSizeFromParams(searchParams));
 
   useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  const handleKeywordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setKeywordInput(value);
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
-      const trimmed = keywordInput.trim();
+      const trimmed = value.trim();
       setDebouncedKeyword(trimmed);
       setPage(1);
       syncToUrl(city, status, trimmed, 1, pageSize);
     }, 300);
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [keywordInput]);
+  };
 
   const syncToUrl = (
     cityValue: string,
@@ -256,7 +261,7 @@ export function BoothListPage() {
           <Input
             placeholder="搜索地址..."
             value={keywordInput}
-            onChange={(e) => setKeywordInput(e.target.value)}
+            onChange={handleKeywordChange}
             className="pl-9"
           />
         </div>
